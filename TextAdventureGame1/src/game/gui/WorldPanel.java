@@ -14,16 +14,23 @@ public class WorldPanel extends JPanel implements Runnable {
 
     private final int TILE_SIZE = 16;
     private final int SCALE = 4;
-    private final int TILE_DISPLAY_SIZE = TILE_SIZE * SCALE; // 48px on screen
+    private final int TILE_DISPLAY_SIZE = TILE_SIZE * SCALE;
 
-    // Player world position
+    // Player
     private int playerX = 200;
     private int playerY = 200;
     private final int PLAYER_SPEED = 3;
-    private final int PLAYER_SIZE = 15;
-    private BufferedImage playerImage;
+    private final int PLAYER_SIZE_W = 64;
+    private final int PLAYER_SIZE_H = 32;
+    private BufferedImage playerSheet;
 
-    // Camera offset
+    // Animation
+    private int frameCounter = 0;
+    private int frameDelay = 8;
+    private int currentFrame = 0;
+    private int currentRow = 0; // 0=down, 1=left, 2=right, 3=up
+
+    // Camera
     private int cameraX = 0;
     private int cameraY = 0;
 
@@ -41,9 +48,10 @@ public class WorldPanel extends JPanel implements Runnable {
         this.addKeyListener(keyH);
         this.setFocusable(true);
 
-        // Load player image
         try {
-            playerImage = ImageIO.read(new File("resources/Texture/Avatar1.png"));
+            playerSheet = ImageIO.read(new File("resources/Texture/Avatar1.png"));
+            System.out.println("Player sheet loaded: "
+                    + playerSheet.getWidth() + "x" + playerSheet.getHeight());
         } catch (Exception e) {
             System.err.println("Could not load player: " + e.getMessage());
         }
@@ -118,20 +126,24 @@ public class WorldPanel extends JPanel implements Runnable {
                     continue;
                 }
 
-                String tsxContent = new java.util.Scanner(tsxFile).useDelimiter("\\Z").next();
+                String tsxContent = new java.util.Scanner(tsxFile)
+                        .useDelimiter("\\Z").next();
 
                 int tileWidth = TILE_SIZE;
                 int tileHeight = TILE_SIZE;
                 if (tsxContent.contains("tilewidth=\"")) {
-                    tileWidth = Integer.parseInt(tsxContent.split("tilewidth=\"")[1].split("\"")[0]);
-                    tileHeight = Integer.parseInt(tsxContent.split("tileheight=\"")[1].split("\"")[0]);
+                    tileWidth = Integer.parseInt(
+                            tsxContent.split("tilewidth=\"")[1].split("\"")[0]);
+                    tileHeight = Integer.parseInt(
+                            tsxContent.split("tileheight=\"")[1].split("\"")[0]);
                 }
 
                 String imgSource = tsxContent.split("source=\"")[1].split("\"")[0];
 
                 File imgFile = new File("resources/" + imgSource);
                 if (!imgFile.exists()) {
-                    imgFile = new File("resources/Texture/" + new File(imgSource).getName());
+                    imgFile = new File("resources/Texture/" +
+                            new File(imgSource).getName());
                 }
                 if (!imgFile.exists()) {
                     System.out.println("Cannot find image: " + imgSource);
@@ -140,7 +152,8 @@ public class WorldPanel extends JPanel implements Runnable {
 
                 BufferedImage tilesetImage = ImageIO.read(imgFile);
                 System.out.println("Loaded: " + imgFile.getName()
-                        + " (" + tilesetImage.getWidth() + "x" + tilesetImage.getHeight() + ")"
+                        + " (" + tilesetImage.getWidth() + "x"
+                        + tilesetImage.getHeight() + ")"
                         + " firstGid=" + firstGid);
 
                 int columns = tilesetImage.getWidth() / tileWidth;
@@ -157,8 +170,10 @@ public class WorldPanel extends JPanel implements Runnable {
                         if (srcX + tileWidth > tilesetImage.getWidth() ||
                                 srcY + tileHeight > tilesetImage.getHeight()) continue;
 
-                        BufferedImage tileImg = tilesetImage.getSubimage(srcX, srcY, tileWidth, tileHeight);
-                        BufferedImage copy = new BufferedImage(tileWidth, tileHeight, BufferedImage.TYPE_INT_ARGB);
+                        BufferedImage tileImg = tilesetImage.getSubimage(
+                                srcX, srcY, tileWidth, tileHeight);
+                        BufferedImage copy = new BufferedImage(
+                                tileWidth, tileHeight, BufferedImage.TYPE_INT_ARGB);
                         Graphics2D tg = copy.createGraphics();
                         tg.drawImage(tileImg, 0, 0, null);
                         tg.dispose();
@@ -179,26 +194,38 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     private void update() {
-        // Move player
-        if (keyH.up)    playerY -= PLAYER_SPEED;
-        if (keyH.down)  playerY += PLAYER_SPEED;
-        if (keyH.left)  playerX -= PLAYER_SPEED;
-        if (keyH.right) playerX += PLAYER_SPEED;
+        boolean moving = false;
 
-        // Clamp player to map bounds
+        if (keyH.up)    { playerY -= PLAYER_SPEED; currentRow = 3; moving = true; }
+        if (keyH.down)  { playerY += PLAYER_SPEED; currentRow = 0; moving = true; }
+        if (keyH.left)  { playerX -= PLAYER_SPEED; currentRow = 1; moving = true; }
+        if (keyH.right) { playerX += PLAYER_SPEED; currentRow = 2; moving = true; }
+
+        if (moving) {
+            frameCounter++;
+            if (frameCounter >= frameDelay) {
+                frameCounter = 0;
+                currentFrame = (currentFrame + 1) % 3;
+            }
+        } else {
+            currentFrame = 0;
+            frameCounter = 0;
+        }
+
+        // Clamp player inside map
         int mapPixelWidth  = mapWidth  * TILE_DISPLAY_SIZE;
         int mapPixelHeight = mapHeight * TILE_DISPLAY_SIZE;
-        playerX = Math.max(0, Math.min(playerX, mapPixelWidth  - PLAYER_SIZE));
-        playerY = Math.max(0, Math.min(playerY, mapPixelHeight - PLAYER_SIZE));
+        playerX = Math.max(0, Math.min(playerX, mapPixelWidth  - PLAYER_SIZE_W));
+        playerY = Math.max(0, Math.min(playerY, mapPixelHeight - PLAYER_SIZE_H));
 
-        // Camera follows player — centered on screen
+        // Camera centers on player
         int screenWidth  = getWidth()  > 0 ? getWidth()  : 1920;
         int screenHeight = getHeight() > 0 ? getHeight() : 1080;
 
-        cameraX = playerX - screenWidth  / 2 + PLAYER_SIZE / 2;
-        cameraY = playerY - screenHeight / 2 + PLAYER_SIZE / 2;
+        cameraX = playerX - screenWidth  / 2 + PLAYER_SIZE_W / 2;
+        cameraY = playerY - screenHeight / 2 + PLAYER_SIZE_H / 2;
 
-        // Clamp camera to map bounds
+        // Clamp camera inside map
         cameraX = Math.max(0, Math.min(cameraX, mapPixelWidth  - screenWidth));
         cameraY = Math.max(0, Math.min(cameraY, mapPixelHeight - screenHeight));
     }
@@ -222,7 +249,7 @@ public class WorldPanel extends JPanel implements Runnable {
         Graphics2D g2 = (Graphics2D) g;
 
         if (allLayerData != null) {
-            // Draw all map layers offset by camera
+
             for (int layer = 0; layer < allLayerData.length; layer++) {
                 for (int row = 0; row < mapHeight; row++) {
                     for (int col = 0; col < mapWidth; col++) {
@@ -232,7 +259,6 @@ public class WorldPanel extends JPanel implements Runnable {
                         int drawX = col * TILE_DISPLAY_SIZE - cameraX;
                         int drawY = row * TILE_DISPLAY_SIZE - cameraY;
 
-                        // Skip tiles outside screen
                         if (drawX + TILE_DISPLAY_SIZE < 0 || drawX > getWidth()) continue;
                         if (drawY + TILE_DISPLAY_SIZE < 0 || drawY > getHeight()) continue;
 
@@ -245,18 +271,31 @@ public class WorldPanel extends JPanel implements Runnable {
                 }
             }
 
-            // Draw player at center of screen
+            // Draw animated player
             int playerScreenX = playerX - cameraX;
             int playerScreenY = playerY - cameraY;
 
-            if (playerImage != null) {
-                g2.drawImage(playerImage,
-                        playerScreenX, playerScreenY,
-                        PLAYER_SIZE, PLAYER_SIZE, null);
+            if (playerSheet != null) {
+                int frameWidth  = playerSheet.getWidth()  / 96;
+                int frameHeight = playerSheet.getHeight() / 48;
+
+                int srcX = currentFrame * frameWidth;
+                int srcY = currentRow   * frameHeight;
+
+                g2.drawImage(playerSheet,
+                        playerScreenX,
+                        playerScreenY,
+                        playerScreenX + PLAYER_SIZE_W,
+                        playerScreenY + PLAYER_SIZE_H,
+                        srcX,
+                        srcY,
+                        srcX + frameWidth,
+                        srcY + frameHeight,
+                        null);
             } else {
-                // Fallback red square if image missing
                 g2.setColor(Color.RED);
-                g2.fillRect(playerScreenX, playerScreenY, PLAYER_SIZE, PLAYER_SIZE);
+                g2.fillRect(playerScreenX, playerScreenY,
+                        PLAYER_SIZE_W, PLAYER_SIZE_H);
             }
 
         } else {
