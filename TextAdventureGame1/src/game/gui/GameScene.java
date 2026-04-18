@@ -109,13 +109,30 @@ public class GameScene extends JFrame {
     }
 
     public void switchToWorld() {
-        this.getContentPane().removeAll();
-        WorldPanel world = new WorldPanel();
-        this.add(world);
-        this.revalidate();
-        this.repaint();
-        world.requestFocusInWindow();
-        world.start();
+        SwingUtilities.invokeLater(() -> {
+            // Remove old content
+            this.getContentPane().removeAll();
+
+            // Set a proper layout
+            this.setLayout(new BorderLayout());
+
+            // Create and add WorldPanel
+            WorldPanel world = new WorldPanel();
+            this.add(world, BorderLayout.CENTER);
+
+            // Force the frame to stay maximized
+            this.setExtendedState(JFrame.MAXIMIZED_BOTH);
+
+            // Refresh layout
+            this.revalidate();
+            this.repaint();
+
+            // Give focus to WorldPanel for keyboard input
+            SwingUtilities.invokeLater(() -> {
+                world.requestFocusInWindow();
+                world.start();
+            });
+        });
     }
 
     public void addChar(String c) {

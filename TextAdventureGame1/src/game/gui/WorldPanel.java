@@ -11,12 +11,23 @@ import java.util.HashMap;
 public class WorldPanel extends JPanel implements Runnable {
     private Thread gameThread;
     private KeyHandler keyH = new KeyHandler();
-    private Player player = new Player("resources/Texture/Avatar1.png");
 
     private final int TILE_SIZE = 16;
-    private final int SCALE = 3;
-    private final int TILE_DISPLAY_SIZE = TILE_SIZE * SCALE;
+    private final int SCALE = 4;
+    private final int TILE_DISPLAY_SIZE = TILE_SIZE * SCALE; // 48px on screen
 
+    // Player world position
+    private int playerX = 200;
+    private int playerY = 200;
+    private final int PLAYER_SPEED = 3;
+    private final int PLAYER_SIZE = 15;
+    private BufferedImage playerImage;
+
+    // Camera offset
+    private int cameraX = 0;
+    private int cameraY = 0;
+
+    // Map
     private int[][][] allLayerData;
     private int mapWidth;
     private int mapHeight;
@@ -29,6 +40,14 @@ public class WorldPanel extends JPanel implements Runnable {
         this.setDoubleBuffered(true);
         this.addKeyListener(keyH);
         this.setFocusable(true);
+
+        // Load player image
+        try {
+            playerImage = ImageIO.read(new File("resources/Texture/Avatar1.png"));
+        } catch (Exception e) {
+            System.err.println("Could not load player: " + e.getMessage());
+        }
+
         loadMap("resources/World1.tmx");
     }
 
@@ -51,7 +70,6 @@ public class WorldPanel extends JPanel implements Runnable {
 
             mapWidth = Integer.parseInt(content.split("width=\"")[1].split("\"")[0]);
             mapHeight = Integer.parseInt(content.split("height=\"")[1].split("\"")[0]);
-
             System.out.println("Map size: " + mapWidth + "x" + mapHeight);
 
             String[] layers = content.split("<data encoding=\"csv\">");
@@ -160,10 +178,35 @@ public class WorldPanel extends JPanel implements Runnable {
         }
     }
 
+    private void update() {
+        // Move player
+        if (keyH.up)    playerY -= PLAYER_SPEED;
+        if (keyH.down)  playerY += PLAYER_SPEED;
+        if (keyH.left)  playerX -= PLAYER_SPEED;
+        if (keyH.right) playerX += PLAYER_SPEED;
+
+        // Clamp player to map bounds
+        int mapPixelWidth  = mapWidth  * TILE_DISPLAY_SIZE;
+        int mapPixelHeight = mapHeight * TILE_DISPLAY_SIZE;
+        playerX = Math.max(0, Math.min(playerX, mapPixelWidth  - PLAYER_SIZE));
+        playerY = Math.max(0, Math.min(playerY, mapPixelHeight - PLAYER_SIZE));
+
+        // Camera follows player — centered on screen
+        int screenWidth  = getWidth()  > 0 ? getWidth()  : 1920;
+        int screenHeight = getHeight() > 0 ? getHeight() : 1080;
+
+        cameraX = playerX - screenWidth  / 2 + PLAYER_SIZE / 2;
+        cameraY = playerY - screenHeight / 2 + PLAYER_SIZE / 2;
+
+        // Clamp camera to map bounds
+        cameraX = Math.max(0, Math.min(cameraX, mapPixelWidth  - screenWidth));
+        cameraY = Math.max(0, Math.min(cameraY, mapPixelHeight - screenHeight));
+    }
+
     @Override
     public void run() {
         while (gameThread != null) {
-            player.update(keyH.up, keyH.down, keyH.left, keyH.right);
+            update();
             repaint();
             try {
                 Thread.sleep(16);
@@ -179,36 +222,47 @@ public class WorldPanel extends JPanel implements Runnable {
         Graphics2D g2 = (Graphics2D) g;
 
         if (allLayerData != null) {
+            // Draw all map layers offset by camera
             for (int layer = 0; layer < allLayerData.length; layer++) {
                 for (int row = 0; row < mapHeight; row++) {
                     for (int col = 0; col < mapWidth; col++) {
                         int tileId = allLayerData[layer][row][col];
                         if (tileId <= 0) continue;
 
+                        int drawX = col * TILE_DISPLAY_SIZE - cameraX;
+                        int drawY = row * TILE_DISPLAY_SIZE - cameraY;
+
+                        // Skip tiles outside screen
+                        if (drawX + TILE_DISPLAY_SIZE < 0 || drawX > getWidth()) continue;
+                        if (drawY + TILE_DISPLAY_SIZE < 0 || drawY > getHeight()) continue;
+
                         BufferedImage img = tileCache.get(tileId);
                         if (img != null) {
-                            g2.drawImage(img,
-                                    col * TILE_DISPLAY_SIZE,
-                                    row * TILE_DISPLAY_SIZE,
-                                    TILE_DISPLAY_SIZE,
-                                    TILE_DISPLAY_SIZE,
-                                    null);
-                        } else {
-                            g2.setColor(Color.MAGENTA);
-                            g2.fillRect(col * TILE_DISPLAY_SIZE, row * TILE_DISPLAY_SIZE,
-                                    TILE_DISPLAY_SIZE, TILE_DISPLAY_SIZE);
+                            g2.drawImage(img, drawX, drawY,
+                                    TILE_DISPLAY_SIZE, TILE_DISPLAY_SIZE, null);
                         }
                     }
                 }
             }
+
+            // Draw player at center of screen
+            int playerScreenX = playerX - cameraX;
+            int playerScreenY = playerY - cameraY;
+
+            if (playerImage != null) {
+                g2.drawImage(playerImage,
+                        playerScreenX, playerScreenY,
+                        PLAYER_SIZE, PLAYER_SIZE, null);
+            } else {
+                // Fallback red square if image missing
+                g2.setColor(Color.RED);
+                g2.fillRect(playerScreenX, playerScreenY, PLAYER_SIZE, PLAYER_SIZE);
+            }
+
         } else {
             g2.setColor(Color.RED);
             g2.setFont(new Font("Arial", Font.BOLD, 20));
             g2.drawString("Map failed to load!", 50, 50);
-        }
-
-        if (player != null) {
-            player.draw(g2);
         }
     }
 }
