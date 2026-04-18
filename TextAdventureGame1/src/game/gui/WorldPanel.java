@@ -17,18 +17,18 @@ public class WorldPanel extends JPanel implements Runnable {
     private final int TILE_DISPLAY_SIZE = TILE_SIZE * SCALE;
 
     // Player
-    private int playerX = 200;
-    private int playerY = 200;
+    private int playerX = 1900;
+    private int playerY = 2300;
     private final int PLAYER_SPEED = 3;
-    private final int PLAYER_SIZE_W = 64;
-    private final int PLAYER_SIZE_H = 32;
+    private final int PLAYER_SIZE_W = 16;
+    private final int PLAYER_SIZE_H = 16;
     private BufferedImage playerSheet;
 
     // Animation
     private int frameCounter = 0;
     private int frameDelay = 8;
     private int currentFrame = 0;
-    private int currentRow = 0; // 0=down, 1=left, 2=right, 3=up
+    private int currentRow = 0;
 
     // Camera
     private int cameraX = 0;
@@ -41,8 +41,7 @@ public class WorldPanel extends JPanel implements Runnable {
     private HashMap<Integer, BufferedImage> tileCache = new HashMap<>();
 
     public WorldPanel() {
-        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-        this.setPreferredSize(screenSize);
+        this.setPreferredSize(new Dimension(1280, 720));
         this.setBackground(Color.BLACK);
         this.setDoubleBuffered(true);
         this.addKeyListener(keyH);
@@ -50,7 +49,7 @@ public class WorldPanel extends JPanel implements Runnable {
 
         try {
             playerSheet = ImageIO.read(new File("resources/Texture/Avatar1.png"));
-            System.out.println("Player sheet loaded: "
+            System.out.println("Player sheet: "
                     + playerSheet.getWidth() + "x" + playerSheet.getHeight());
         } catch (Exception e) {
             System.err.println("Could not load player: " + e.getMessage());
@@ -212,20 +211,17 @@ public class WorldPanel extends JPanel implements Runnable {
             frameCounter = 0;
         }
 
-        // Clamp player inside map
         int mapPixelWidth  = mapWidth  * TILE_DISPLAY_SIZE;
         int mapPixelHeight = mapHeight * TILE_DISPLAY_SIZE;
         playerX = Math.max(0, Math.min(playerX, mapPixelWidth  - PLAYER_SIZE_W));
         playerY = Math.max(0, Math.min(playerY, mapPixelHeight - PLAYER_SIZE_H));
 
-        // Camera centers on player
-        int screenWidth  = getWidth()  > 0 ? getWidth()  : 1920;
-        int screenHeight = getHeight() > 0 ? getHeight() : 1080;
+        int screenWidth  = getWidth()  > 0 ? getWidth()  : 1280;
+        int screenHeight = getHeight() > 0 ? getHeight() : 720;
 
         cameraX = playerX - screenWidth  / 2 + PLAYER_SIZE_W / 2;
         cameraY = playerY - screenHeight / 2 + PLAYER_SIZE_H / 2;
 
-        // Clamp camera inside map
         cameraX = Math.max(0, Math.min(cameraX, mapPixelWidth  - screenWidth));
         cameraY = Math.max(0, Math.min(cameraY, mapPixelHeight - screenHeight));
     }
@@ -271,13 +267,13 @@ public class WorldPanel extends JPanel implements Runnable {
                 }
             }
 
-            // Draw animated player
             int playerScreenX = playerX - cameraX;
             int playerScreenY = playerY - cameraY;
 
             if (playerSheet != null) {
-                int frameWidth  = playerSheet.getWidth()  / 96;
-                int frameHeight = playerSheet.getHeight() / 48;
+                // Avatar1.png is 288x192 = 3 cols x 4 rows
+                int frameWidth  = playerSheet.getWidth()  / 3; // 96px
+                int frameHeight = playerSheet.getHeight() / 4; // 48px
 
                 int srcX = currentFrame * frameWidth;
                 int srcY = currentRow   * frameHeight;
@@ -287,8 +283,7 @@ public class WorldPanel extends JPanel implements Runnable {
                         playerScreenY,
                         playerScreenX + PLAYER_SIZE_W,
                         playerScreenY + PLAYER_SIZE_H,
-                        srcX,
-                        srcY,
+                        srcX, srcY,
                         srcX + frameWidth,
                         srcY + frameHeight,
                         null);

@@ -10,24 +10,19 @@ public class GameScene extends JFrame {
     private JScrollPane scrollPane;
     private JLabel backgroundLabel;
     private JButton nextButton;
+    private JButton skipButton;
     private ProgressionManager progressionManager;
     private volatile boolean isTyping = false;
 
-    private final int W;
-    private final int H;
+    private final int W = 1280;
+    private final int H = 720;
 
     public GameScene(ProgressionManager pm) {
         this.progressionManager = pm;
 
-        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
-        W = screen.width;
-        H = screen.height;
-
         setTitle("ALAMAT - Journey");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
-        setUndecorated(true);
-        setExtendedState(JFrame.MAXIMIZED_BOTH);
 
         JLayeredPane layeredPane = new JLayeredPane();
         layeredPane.setPreferredSize(new Dimension(W, H));
@@ -48,7 +43,7 @@ public class GameScene extends JFrame {
         textArea.setWrapStyleWord(true);
         textArea.setBackground(Color.BLACK);
         textArea.setForeground(new Color(230, 230, 200));
-        textArea.setFont(new Font("Monospaced", Font.BOLD, 21));
+        textArea.setFont(new Font("Monospaced", Font.BOLD, 18));
         textArea.setMargin(new Insets(10, 15, 10, 15));
 
         scrollPane = new JScrollPane(textArea);
@@ -57,21 +52,32 @@ public class GameScene extends JFrame {
         scrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(0, 0));
         textPanel.add(scrollPane);
 
+        // Next button
         nextButton = new JButton("Next");
-        nextButton.setBounds(W - 160, 120, 130, 50);
+        nextButton.setBounds(W - 155, 120, 130, 50);
         nextButton.setForeground(Color.RED);
         nextButton.setBackground(Color.BLACK);
         nextButton.setFont(new Font("Arial", Font.BOLD, 18));
         nextButton.setFocusPainted(false);
         nextButton.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
-
         nextButton.addActionListener(e -> {
             if (!isTyping) {
                 progressionManager.handleNextScene();
             }
         });
-
         textPanel.add(nextButton);
+
+        // Skip button
+        skipButton = new JButton("SKIP");
+        skipButton.setBounds(W - 155, 60, 130, 50);
+        skipButton.setForeground(Color.RED);
+        skipButton.setBackground(Color.BLACK);
+        skipButton.setFont(new Font("Arial", Font.BOLD, 18));
+        skipButton.setFocusPainted(false);
+        skipButton.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
+        skipButton.addActionListener(e -> switchToWorld());
+        textPanel.add(skipButton);
+
         layeredPane.add(textPanel, JLayeredPane.PALETTE_LAYER);
 
         pack();
@@ -110,24 +116,17 @@ public class GameScene extends JFrame {
 
     public void switchToWorld() {
         SwingUtilities.invokeLater(() -> {
-            // Remove old content
             this.getContentPane().removeAll();
-
-            // Set a proper layout
             this.setLayout(new BorderLayout());
 
-            // Create and add WorldPanel
             WorldPanel world = new WorldPanel();
             this.add(world, BorderLayout.CENTER);
 
-            // Force the frame to stay maximized
-            this.setExtendedState(JFrame.MAXIMIZED_BOTH);
-
-            // Refresh layout
+            this.pack();
+            this.setLocationRelativeTo(null);
             this.revalidate();
             this.repaint();
 
-            // Give focus to WorldPanel for keyboard input
             SwingUtilities.invokeLater(() -> {
                 world.requestFocusInWindow();
                 world.start();
@@ -152,5 +151,9 @@ public class GameScene extends JFrame {
 
     public void setNextButtonText(String text) {
         SwingUtilities.invokeLater(() -> nextButton.setText(text));
+    }
+
+    public void setSkipButtonVisible(boolean visible) {
+        SwingUtilities.invokeLater(() -> skipButton.setVisible(visible));
     }
 }
