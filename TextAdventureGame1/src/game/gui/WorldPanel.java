@@ -7,6 +7,8 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 public class WorldPanel extends JPanel implements Runnable {
     private Thread gameThread;
@@ -34,6 +36,9 @@ public class WorldPanel extends JPanel implements Runnable {
     private int cameraX = 0;
     private int cameraY = 0;
 
+    // Collision
+    private Set<Integer> solidTiles = new HashSet<>();
+
     // Map
     private int[][][] allLayerData;
     private int mapWidth;
@@ -56,6 +61,32 @@ public class WorldPanel extends JPanel implements Runnable {
         }
 
         loadMap("resources/World1.tmx");
+        initSolidTiles();
+    }
+
+    private void initSolidTiles() {
+        // Add your solid tile IDs here
+        solidTiles.add(838);
+        // Add more IDs as needed — check Tiled by hovering over tiles
+        // solidTiles.add(839);
+        // solidTiles.add(900);
+    }
+
+    private boolean isSolid(int worldX, int worldY) {
+        int tileCol = worldX / TILE_DISPLAY_SIZE;
+        int tileRow = worldY / TILE_DISPLAY_SIZE;
+
+        if (tileCol < 0 || tileRow < 0 || tileCol >= mapWidth || tileRow >= mapHeight) {
+            return true;
+        }
+
+        for (int layer = 0; layer < allLayerData.length; layer++) {
+            int tileId = allLayerData[layer][tileRow][tileCol];
+            if (solidTiles.contains(tileId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void start() {
@@ -195,10 +226,22 @@ public class WorldPanel extends JPanel implements Runnable {
     private void update() {
         boolean moving = false;
 
-        if (keyH.up)    { playerY -= PLAYER_SPEED; currentRow = 3; moving = true; }
-        if (keyH.down)  { playerY += PLAYER_SPEED; currentRow = 0; moving = true; }
-        if (keyH.left)  { playerX -= PLAYER_SPEED; currentRow = 1; moving = true; }
-        if (keyH.right) { playerX += PLAYER_SPEED; currentRow = 2; moving = true; }
+        int newX = playerX;
+        int newY = playerY;
+
+        if (keyH.up)    { newY -= PLAYER_SPEED; currentRow = 3; moving = true; }
+        if (keyH.down)  { newY += PLAYER_SPEED; currentRow = 0; moving = true; }
+        if (keyH.left)  { newX -= PLAYER_SPEED; currentRow = 1; moving = true; }
+        if (keyH.right) { newX += PLAYER_SPEED; currentRow = 2; moving = true; }
+
+        // Check collision at all 4 corners of the player
+        if (!isSolid(newX, newY) &&
+                !isSolid(newX + PLAYER_SIZE_W - 1, newY) &&
+                !isSolid(newX, newY + PLAYER_SIZE_H - 1) &&
+                !isSolid(newX + PLAYER_SIZE_W - 1, newY + PLAYER_SIZE_H - 1)) {
+            playerX = newX;
+            playerY = newY;
+        }
 
         if (moving) {
             frameCounter++;
@@ -271,9 +314,8 @@ public class WorldPanel extends JPanel implements Runnable {
             int playerScreenY = playerY - cameraY;
 
             if (playerSheet != null) {
-                // Avatar1.png is 288x192 = 3 cols x 4 rows
-                int frameWidth  = playerSheet.getWidth()  / 3; // 96px
-                int frameHeight = playerSheet.getHeight() / 4; // 48px
+                int frameWidth  = playerSheet.getWidth()  / 3;
+                int frameHeight = playerSheet.getHeight() / 4;
 
                 int srcX = currentFrame * frameWidth;
                 int srcY = currentRow   * frameHeight;
