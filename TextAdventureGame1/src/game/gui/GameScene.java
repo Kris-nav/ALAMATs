@@ -11,25 +11,34 @@ public class GameScene extends JFrame {
     private JLabel backgroundLabel;
     private JButton nextButton;
     private ProgressionManager progressionManager;
-    private boolean isTyping = false;
+    private volatile boolean isTyping = false;
+
+    private final int W;
+    private final int H;
 
     public GameScene(ProgressionManager pm) {
         this.progressionManager = pm;
 
+        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+        W = screen.width;
+        H = screen.height;
+
         setTitle("ALAMAT - Journey");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
+        setUndecorated(true);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
 
         JLayeredPane layeredPane = new JLayeredPane();
-        layeredPane.setPreferredSize(new Dimension(1000, 700));
+        layeredPane.setPreferredSize(new Dimension(W, H));
         setContentPane(layeredPane);
 
         backgroundLabel = new JLabel();
-        backgroundLabel.setBounds(0, 0, 1000, 700);
+        backgroundLabel.setBounds(0, 0, W, H);
         layeredPane.add(backgroundLabel, JLayeredPane.DEFAULT_LAYER);
 
         JPanel textPanel = new JPanel(null);
-        textPanel.setBounds(10, 510, 980, 180);
+        textPanel.setBounds(10, H - 200, W - 20, 185);
         textPanel.setBackground(new Color(0, 0, 0, 230));
         textPanel.setBorder(BorderFactory.createLineBorder(new Color(60, 60, 60), 4));
 
@@ -43,13 +52,13 @@ public class GameScene extends JFrame {
         textArea.setMargin(new Insets(10, 15, 10, 15));
 
         scrollPane = new JScrollPane(textArea);
-        scrollPane.setBounds(15, 15, 810, 150);
+        scrollPane.setBounds(15, 15, W - 180, 155);
         scrollPane.setBorder(null);
         scrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(0, 0));
         textPanel.add(scrollPane);
 
         nextButton = new JButton("Next");
-        nextButton.setBounds(840, 115, 120, 50);
+        nextButton.setBounds(W - 160, 120, 130, 50);
         nextButton.setForeground(Color.RED);
         nextButton.setBackground(Color.BLACK);
         nextButton.setFont(new Font("Arial", Font.BOLD, 18));
@@ -73,7 +82,7 @@ public class GameScene extends JFrame {
         File imgFile = new File(imagePath);
         if (imgFile.exists()) {
             ImageIcon icon = new ImageIcon(imagePath);
-            Image img = icon.getImage().getScaledInstance(1000, 700, Image.SCALE_SMOOTH);
+            Image img = icon.getImage().getScaledInstance(W, H, Image.SCALE_SMOOTH);
             backgroundLabel.setIcon(new ImageIcon(img));
         }
         if (!text.isEmpty()) {
@@ -99,23 +108,13 @@ public class GameScene extends JFrame {
         }).start();
     }
 
-    // ADDED/UPDATED METHOD
     public void switchToWorld() {
-        // Remove the cinematic UI (Background, TextArea, Buttons)
         this.getContentPane().removeAll();
-
-        // Create the WorldPanel
         WorldPanel world = new WorldPanel();
         this.add(world);
-
-        // Refresh the Frame structure
         this.revalidate();
         this.repaint();
-
-        // CRITICAL: Gain focus so KeyHandler can hear your WASD/Arrow keys
         world.requestFocusInWindow();
-
-        // Start the game loop thread
         world.start();
     }
 

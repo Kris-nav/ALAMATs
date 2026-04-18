@@ -24,6 +24,7 @@ public class TextAdventureGame {
         GameScene gameGui = new GameScene(pm);
         pm.setGameScene(gameGui);
 
+
         gameGui.setVisible(true);
         pm.startStory();
 
