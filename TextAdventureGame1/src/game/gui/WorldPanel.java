@@ -27,7 +27,7 @@ public class WorldPanel extends JPanel implements Runnable {
     private BufferedImage playerSheet;
 
     // Animation
-    private int frameCounter = 0;
+    private int frameCounter = 10;
     private int frameDelay = 8;
     private int currentFrame = 0;
     private int currentRow = 0;
