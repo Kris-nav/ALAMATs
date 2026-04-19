@@ -15,15 +15,15 @@ public class WorldPanel extends JPanel implements Runnable {
     private KeyHandler keyH = new KeyHandler();
 
     private final int TILE_SIZE = 16;
-    private final int SCALE = 4;
+    private final int SCALE = 9;
     private final int TILE_DISPLAY_SIZE = TILE_SIZE * SCALE;
 
     // Player
-    private int playerX = 1900;
-    private int playerY = 2300;
-    private final int PLAYER_SPEED = 3;
-    private final int PLAYER_SIZE_W = 16;
-    private final int PLAYER_SIZE_H = 16;
+    private int playerX = 4250;
+    private int playerY = 5200;
+    private final int PLAYER_SPEED = 4;
+    private final int PLAYER_SIZE_W = 320;
+    private final int PLAYER_SIZE_H = 310;
     private BufferedImage playerSheet;
 
     // Animation
@@ -229,7 +229,7 @@ public class WorldPanel extends JPanel implements Runnable {
         int newX = playerX;
         int newY = playerY;
 
-        if (keyH.up)    { newY -= PLAYER_SPEED; currentRow = 3; moving = true; }
+        if (keyH.up)    { newY -= PLAYER_SPEED; currentRow = 4; moving = true; }
         if (keyH.down)  { newY += PLAYER_SPEED; currentRow = 0; moving = true; }
         if (keyH.left)  { newX -= PLAYER_SPEED; currentRow = 1; moving = true; }
         if (keyH.right) { newX += PLAYER_SPEED; currentRow = 2; moving = true; }
@@ -314,8 +314,8 @@ public class WorldPanel extends JPanel implements Runnable {
             int playerScreenY = playerY - cameraY;
 
             if (playerSheet != null) {
-                int frameWidth  = playerSheet.getWidth()  / 3;
-                int frameHeight = playerSheet.getHeight() / 4;
+                int frameWidth  = playerSheet.getWidth()  / 20;
+                int frameHeight = playerSheet.getHeight() / 24;
 
                 int srcX = currentFrame * frameWidth;
                 int srcY = currentRow   * frameHeight;
