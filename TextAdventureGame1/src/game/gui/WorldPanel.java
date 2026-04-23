@@ -22,8 +22,8 @@ public class WorldPanel extends JPanel implements Runnable {
     private int playerX = 4250;
     private int playerY = 5200;
     private final int PLAYER_SPEED = 4;
-    private final int PLAYER_SIZE_W = 320;
-    private final int PLAYER_SIZE_H = 310;
+    private final int PLAYER_SIZE_W = 100;
+    private final int PLAYER_SIZE_H = 60;
     private BufferedImage playerSheet;
 
     // Animation
@@ -229,11 +229,10 @@ public class WorldPanel extends JPanel implements Runnable {
         int newX = playerX;
         int newY = playerY;
 
-        if (keyH.up)    { newY -= PLAYER_SPEED; currentRow = 4; moving = true; }
+        if (keyH.up)    { newY -= PLAYER_SPEED; currentRow = 3; moving = true; }
         if (keyH.down)  { newY += PLAYER_SPEED; currentRow = 0; moving = true; }
         if (keyH.left)  { newX -= PLAYER_SPEED; currentRow = 1; moving = true; }
         if (keyH.right) { newX += PLAYER_SPEED; currentRow = 2; moving = true; }
-
         // Check collision at all 4 corners of the player
         if (!isSolid(newX, newY) &&
                 !isSolid(newX + PLAYER_SIZE_W - 1, newY) &&
@@ -246,8 +245,8 @@ public class WorldPanel extends JPanel implements Runnable {
         if (moving) {
             frameCounter++;
             if (frameCounter >= frameDelay) {
-                frameCounter = 0;
-                currentFrame = (currentFrame + 1) % 3;
+                frameCounter = 1;
+                currentFrame = (currentFrame + 1) % 50;
             }
         } else {
             currentFrame = 0;
@@ -314,8 +313,8 @@ public class WorldPanel extends JPanel implements Runnable {
             int playerScreenY = playerY - cameraY;
 
             if (playerSheet != null) {
-                int frameWidth  = playerSheet.getWidth()  / 20;
-                int frameHeight = playerSheet.getHeight() / 24;
+                int frameWidth  = 25;
+                int frameHeight = 25;
 
                 int srcX = currentFrame * frameWidth;
                 int srcY = currentRow   * frameHeight;
