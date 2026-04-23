@@ -21,16 +21,16 @@ public class WorldPanel extends JPanel implements Runnable {
     // Player
     private int playerX = 4250;
     private int playerY = 5200;
-    private final int PLAYER_SPEED = 4;
+    private final int PLAYER_SPEED = 6;
     private final int PLAYER_SIZE_W = 100;
-    private final int PLAYER_SIZE_H = 60;
+    private final int PLAYER_SIZE_H = 120;
     private BufferedImage playerSheet;
 
     // Animation
-    private int frameCounter = 10;
-    private int frameDelay = 8;
-    private int currentFrame = 0;
-    private int currentRow = 0;
+    private int frameCounter = 100;
+    private int frameDelay = 100;
+    private int currentFrame = 20;
+    private int currentRow = 20;
 
     // Camera
     private int cameraX = 0;
