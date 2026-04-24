@@ -67,9 +67,15 @@ public class WorldPanel extends JPanel implements Runnable {
     private void initSolidTiles() {
         // Add your solid tile IDs here
         solidTiles.add(838);
-        // Add more IDs as needed — check Tiled by hovering over tiles
-        // solidTiles.add(839);
-        // solidTiles.add(900);
+        solidTiles.add(201);
+        solidTiles.add(202);
+        solidTiles.add(203);
+        solidTiles.add(230);
+        solidTiles.add(228);
+        solidTiles.add(257);
+        solidTiles.add(255);
+        solidTiles.add(703);
+
     }
 
     private boolean isSolid(int worldX, int worldY) {
@@ -80,7 +86,7 @@ public class WorldPanel extends JPanel implements Runnable {
             return true;
         }
 
-        for (int layer = 0; layer < allLayerData.length; layer++) {
+        for (int layer = 2; layer < allLayerData.length; layer++) {
             int tileId = allLayerData[layer][tileRow][tileCol];
             if (solidTiles.contains(tileId)) {
                 return true;
