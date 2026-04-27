@@ -1,7 +1,6 @@
 package game.core;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import game.battle.BattleMove;
 
 public class InventoryManager {
 
@@ -155,11 +154,11 @@ public class InventoryManager {
         }
     }
 
-    public static Move selectMoveForHerbal(Creature creature) {
+    public static BattleMove selectMoveForHerbal(Creature creature) {
         while (true) {
             System.out.println("--- CHOOSE TARGET MOVE for " + creature.name + " ---");
             for (int i = 0; i < creature.moves.size(); i++) {
-                Move move = creature.moves.get(i);
+                BattleMove move = creature.moves.get(i);
                 System.out.printf("%d. %s (PP: %d/%d)\n", (i + 1), move.name, move.pp, move.maxPp);
             }
             System.out.println("Back");
@@ -172,7 +171,7 @@ public class InventoryManager {
             try {
                 int moveIndex = Integer.parseInt(choice) - 1;
                 if (moveIndex >= 0 && moveIndex < creature.moves.size()) {
-                    Move targetMove = creature.moves.get(moveIndex);
+                    BattleMove targetMove = creature.moves.get(moveIndex);
                     if (targetMove.pp == targetMove.maxPp) {
                         System.out.println(targetMove.name + " already has full PP. Choose another move.");
                         continue;
@@ -266,7 +265,7 @@ public class InventoryManager {
         Creature targetCreature = selectCreatureForUse(false);
         if (targetCreature == null) return;
 
-        Move targetMove = selectMoveForHerbal(targetCreature);
+        BattleMove targetMove = selectMoveForHerbal(targetCreature);
         if (targetMove == null) return;
 
         int ppRestore = 5;
@@ -284,7 +283,7 @@ public class InventoryManager {
         Creature targetCreature = selectCreatureForUse(false);
         if (targetCreature == null) return;
 
-        Move targetMove = selectMoveForHerbal(targetCreature);
+        BattleMove targetMove = selectMoveForHerbal(targetCreature);
         if (targetMove == null) return;
 
         int ppRestore = 5;
@@ -504,7 +503,7 @@ public class InventoryManager {
     public static void healAllCreatures() {
         GameStatus.playerTeam.forEach(creature -> {
             creature.hp = creature.maxHp;
-            for (Move move : creature.moves) {
+            for (BattleMove move : creature.moves) {
                 move.pp = move.maxPp;
             }
         });

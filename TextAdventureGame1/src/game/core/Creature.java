@@ -1,5 +1,7 @@
 package game.core;
 
+import game.core.Move;
+
 import java.util.*;
 
 public class Creature extends MythicalCreature {

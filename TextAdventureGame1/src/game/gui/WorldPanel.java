@@ -1,5 +1,6 @@
 package game.gui;
 
+import game.battle.Fighter;
 import game.core.*;
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -13,6 +14,8 @@ import java.util.Set;
 public class WorldPanel extends JPanel implements Runnable {
     private Thread gameThread;
     private KeyHandler keyH = new KeyHandler();
+    // Add this field at the top with other fields
+    private java.util.ArrayList<Fighter> capturedTeam = new java.util.ArrayList<>();
 
     private final int TILE_SIZE = 16;
     private final int SCALE = 9;
@@ -39,13 +42,18 @@ public class WorldPanel extends JPanel implements Runnable {
     // Collision
     private Set<Integer> solidTiles = new HashSet<>();
 
+    // Battle encounter
+    private GameScene gameScene;
+    private boolean inBattle = false;
+
     // Map
     private int[][][] allLayerData;
     private int mapWidth;
     private int mapHeight;
     private HashMap<Integer, BufferedImage> tileCache = new HashMap<>();
 
-    public WorldPanel() {
+    public WorldPanel(GameScene gameScene) {
+        this.gameScene = gameScene;
         this.setPreferredSize(new Dimension(1280, 720));
         this.setBackground(Color.BLACK);
         this.setDoubleBuffered(true);
@@ -65,7 +73,6 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     private void initSolidTiles() {
-        // Add your solid tile IDs here
         solidTiles.add(838);
         solidTiles.add(201);
         solidTiles.add(202);
@@ -75,7 +82,6 @@ public class WorldPanel extends JPanel implements Runnable {
         solidTiles.add(257);
         solidTiles.add(255);
         solidTiles.add(703);
-
     }
 
     private boolean isSolid(int worldX, int worldY) {
@@ -93,6 +99,39 @@ public class WorldPanel extends JPanel implements Runnable {
             }
         }
         return false;
+    }
+
+    // NEW: Check if player is standing on tile 812
+    private void checkEncounter() {
+        if (inBattle) return;
+        if (allLayerData == null || allLayerData.length < 3) return;
+
+        int feetX = playerX + PLAYER_SIZE_W / 2;
+        int feetY = playerY + PLAYER_SIZE_H;
+
+        int tileCol = feetX / TILE_DISPLAY_SIZE;
+        int tileRow = feetY / TILE_DISPLAY_SIZE;
+
+        if (tileCol < 0 || tileRow < 0 ||
+                tileCol >= mapWidth || tileRow >= mapHeight) return;
+
+        // ✅ DEBUG: print tile ID every 60 frames to avoid console spam
+        if (System.currentTimeMillis() % 1000 < 16) {
+            System.out.println("Layer3 tile under player feet: "
+                    + allLayerData[2][tileRow][tileCol]);
+        }
+
+        int layer3TileId = allLayerData[2][tileRow][tileCol];
+        if (layer3TileId == 758) {
+            if (Math.random() > 0.05) return;
+
+            inBattle = true;
+            game.battle.Fighter playerFighter = game.battle.Create.randomWildCreature();
+            game.battle.Fighter wildFighter   = game.battle.Create.randomWildCreature();
+            SwingUtilities.invokeLater(() ->
+                    gameScene.switchToBattle(playerFighter, wildFighter, () -> inBattle = false)
+            );
+        }
     }
 
     public void start() {
@@ -239,7 +278,7 @@ public class WorldPanel extends JPanel implements Runnable {
         if (keyH.down)  { newY += PLAYER_SPEED; currentRow = 0; moving = true; }
         if (keyH.left)  { newX -= PLAYER_SPEED; currentRow = 1; moving = true; }
         if (keyH.right) { newX += PLAYER_SPEED; currentRow = 2; moving = true; }
-        // Check collision at all 4 corners of the player
+
         if (!isSolid(newX, newY) &&
                 !isSolid(newX + PLAYER_SIZE_W - 1, newY) &&
                 !isSolid(newX, newY + PLAYER_SIZE_H - 1) &&
@@ -272,6 +311,9 @@ public class WorldPanel extends JPanel implements Runnable {
 
         cameraX = Math.max(0, Math.min(cameraX, mapPixelWidth  - screenWidth));
         cameraY = Math.max(0, Math.min(cameraY, mapPixelHeight - screenHeight));
+
+        // NEW: check for battle encounter on tile 812
+        checkEncounter();
     }
 
     @Override

@@ -1,5 +1,7 @@
 package game.core;
 
+import game.battle.BattleMove;
+
 import java.util.*;
 
 public class GameFlowManager {
@@ -269,7 +271,7 @@ public class GameFlowManager {
 
         System.out.println("\nMOVES:");
         for (int i = 0; i < creature.moves.size(); i++) {
-            Move move = creature.moves.get(i);
+            BattleMove move = creature.moves.get(i);
             int requiredLevel = creature.skillsByLevel.getOrDefault(move.name, Integer.MAX_VALUE);
             String readyStatus = (creature.level >= requiredLevel) ? " (READY)" : "";
             System.out.printf("%d. %s (Lvl. %d Req) [PP: %d/%d]%s\n", (i + 1), move.name, requiredLevel, move.pp, move.maxPp, readyStatus);
@@ -295,7 +297,7 @@ public class GameFlowManager {
         }
     }
 
-    public static void showMoveDescription(Move move) {
+    public static void showMoveDescription(BattleMove move) {
         System.out.println("\n--- MOVE DETAILS: " + move.name.toUpperCase() + " ---");
         System.out.println("Type: " + move.type + " | Damage: " + move.damage + " | Hit Chance: " + move.hitChance + "%");
         System.out.println("Description: " + (move.flavorText != null ? move.flavorText : "A standard ability."));

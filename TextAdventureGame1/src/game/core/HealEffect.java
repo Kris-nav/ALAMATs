@@ -1,5 +1,7 @@
 package game.core;
 
+import game.battle.BattleMove;
+
 public class HealEffect extends MoveEffect {
     private final double healPercentage;
 
@@ -9,7 +11,7 @@ public class HealEffect extends MoveEffect {
 
     @Override
     public void applyEffect(Creature user, Creature target) {
-        Move move = user.getActiveMove();
+        BattleMove move = user.getActiveMove();
         double healAmount = user.maxHp * healPercentage;
 
         user.hp = Math.min(user.maxHp, user.hp + healAmount);

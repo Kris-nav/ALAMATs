@@ -1,11 +1,13 @@
 package game.core;
 
+import game.battle.BattleMove;
+
 public class DamageEffect extends MoveEffect {
 
     @Override
     public void applyEffect(Creature user, Creature target) {
 
-        Move move = user.getActiveMove();
+        BattleMove move = user.getActiveMove();
 
         if (!isHit(move, user, target)) {
             System.out.printf("%s's attack **%s** missed!\n", user.name, move.name);

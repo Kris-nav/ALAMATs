@@ -1,12 +1,13 @@
 package game.core;
 
-import java.util.*;
+import game.battle.BattleMove;
 
+import java.util.*;
 public abstract class MoveEffect {
 
     public abstract void applyEffect(Creature user, Creature target);
 
-    protected boolean isHit(Move move, Creature user, Creature target) {
+    protected boolean isHit(BattleMove move, Creature user, Creature target) {
         if (target.hasUsedInvisibility) {
             return false;
         }
@@ -22,7 +23,7 @@ public abstract class MoveEffect {
         return TextAdventureGame.random.nextDouble() < finalHitChance;
     }
 
-    protected double calculateBaseDamage(Move move, Creature user, Creature target) {
+    protected double calculateBaseDamage(BattleMove move, Creature user, Creature target) {
         if (move.damage == 0) return 0.0;
 
         Map<String, Double> targetEffects = GameData.typeEffectiveness.getOrDefault(move.type, new HashMap<>());

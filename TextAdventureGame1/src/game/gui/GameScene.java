@@ -1,5 +1,7 @@
 package game.gui;
 
+import game.battle.BattleScreen;
+import game.battle.Fighter;
 import game.core.ProgressionManager;
 import javax.swing.*;
 import java.awt.*;
@@ -52,7 +54,6 @@ public class GameScene extends JFrame {
         scrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(0, 0));
         textPanel.add(scrollPane);
 
-        // Next button
         nextButton = new JButton("Next");
         nextButton.setBounds(W - 155, 120, 130, 50);
         nextButton.setForeground(Color.RED);
@@ -61,13 +62,10 @@ public class GameScene extends JFrame {
         nextButton.setFocusPainted(false);
         nextButton.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
         nextButton.addActionListener(e -> {
-            if (!isTyping) {
-                progressionManager.handleNextScene();
-            }
+            if (!isTyping) progressionManager.handleNextScene();
         });
         textPanel.add(nextButton);
 
-        // Skip button
         skipButton = new JButton("SKIP");
         skipButton.setBounds(W - 155, 60, 130, 50);
         skipButton.setForeground(Color.RED);
@@ -91,9 +89,7 @@ public class GameScene extends JFrame {
             Image img = icon.getImage().getScaledInstance(W, H, Image.SCALE_SMOOTH);
             backgroundLabel.setIcon(new ImageIcon(img));
         }
-        if (!text.isEmpty()) {
-            startTyping(text);
-        }
+        if (!text.isEmpty()) startTyping(text);
     }
 
     private void startTyping(String text) {
@@ -107,9 +103,7 @@ public class GameScene extends JFrame {
             }
             isTyping = false;
             SwingUtilities.invokeLater(() -> {
-                if (!nextButton.getText().equals("Wait...")) {
-                    nextButton.setEnabled(true);
-                }
+                if (!nextButton.getText().equals("Wait...")) nextButton.setEnabled(true);
             });
         }).start();
     }
@@ -119,7 +113,7 @@ public class GameScene extends JFrame {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
 
-            WorldPanel world = new WorldPanel();
+            WorldPanel world = new WorldPanel(this);
             this.add(world, BorderLayout.CENTER);
 
             this.pack();
@@ -131,6 +125,26 @@ public class GameScene extends JFrame {
                 world.requestFocusInWindow();
                 world.start();
             });
+        });
+    }
+
+    // ✅ UPDATED: now accepts a Runnable onBattleEnd to reset inBattle in WorldPanel
+    // ✅ Save position and restore after battle instead of creating new WorldPanel
+    public void switchToBattle(Fighter userMon, Fighter oppMon, Runnable onBattleEnd) {
+        SwingUtilities.invokeLater(() -> {
+            this.getContentPane().removeAll();
+            this.setLayout(new BorderLayout());
+
+            BattleScreen battle = new BattleScreen(userMon, oppMon, () -> {
+                if (onBattleEnd != null) onBattleEnd.run();
+                switchToWorld();
+            });
+            this.add(battle, BorderLayout.CENTER);
+
+            this.pack();
+            this.setLocationRelativeTo(null);
+            this.revalidate();
+            this.repaint();
         });
     }
 

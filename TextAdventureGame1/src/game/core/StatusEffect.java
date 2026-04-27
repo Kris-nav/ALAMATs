@@ -1,5 +1,7 @@
 package game.core;
 
+import game.battle.BattleMove;
+
 public class StatusEffect extends MoveEffect {
     private final String statusType;
     private final double chance;
@@ -11,7 +13,7 @@ public class StatusEffect extends MoveEffect {
 
     @Override
     public void applyEffect(Creature user, Creature target) {
-        Move move = user.getActiveMove();
+        BattleMove move = user.getActiveMove();
 
         if (this.statusType.startsWith("lower_acc")) {
             target.accuracyReductionPercentage = Math.min(1.0, target.accuracyReductionPercentage + this.chance);

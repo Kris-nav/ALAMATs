@@ -1,5 +1,7 @@
 package game.core;
 
+import game.battle.BattleMove;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -8,7 +10,7 @@ public class AttackHandler {
     public static boolean playerAttackChoice() {
         System.out.println("--- CHOOSE A MOVE ---");
         for (int i = 0; i < GameStatus.playerActiveCreature.moves.size(); i++) {
-            Move move = GameStatus.playerActiveCreature.moves.get(i);
+            BattleMove move = GameStatus.playerActiveCreature.moves.get(i);
             int requiredLevel = GameStatus.playerActiveCreature.skillsByLevel.getOrDefault(move.name, Integer.MAX_VALUE);
             if (GameStatus.playerActiveCreature.level >= requiredLevel) {
                 System.out.println((i + 1) + ". " + move.name + " (" + move.pp + "/" + move.maxPp + " PP)");
@@ -46,13 +48,13 @@ public class AttackHandler {
         }
     }
 
-    public static boolean playerAttack(Move move) {
+    public static boolean playerAttack(BattleMove move) {
         System.out.println("\n--- Player's Turn ---");
 
         GameStatus.rivalCreature.hasWindBarrierActive = false;
 
         if (GameStatus.rivalCreature.name.equals("Khaibalang") && GameStatus.rivalCreature.moves.stream().anyMatch(m -> m.name.equals("Say Stop!")) && TextAdventureGame.random.nextDouble() < 0.3) {
-            System.out.println(GameData.allMoves.get("say_stop").flavorText);
+            System.out.println(GameData.allMoves.get("say_stop").name);
             System.out.println("The creature freezes, confused. Its move fails to land.");
             GameStatus.rivalCreature.speedReductionPercentage = Math.min(1.0, GameStatus.rivalCreature.speedReductionPercentage + 0.20);
             return true;
@@ -85,7 +87,7 @@ public class AttackHandler {
             }
         }
 
-        List<Move> eligibleMoves = GameStatus.rivalCreature.moves.stream()
+        List<BattleMove> eligibleMoves = GameStatus.rivalCreature.moves.stream()
                 .filter(move -> GameStatus.rivalCreature.level >= GameStatus.rivalCreature.skillsByLevel.getOrDefault(move.name, Integer.MAX_VALUE) && move.pp > 0)
                 .collect(Collectors.toList());
 
@@ -94,14 +96,14 @@ public class AttackHandler {
             return;
         }
 
-        Move rivalMove = eligibleMoves.get(TextAdventureGame.random.nextInt(eligibleMoves.size()));
+        BattleMove rivalMove = eligibleMoves.get(TextAdventureGame.random.nextInt(eligibleMoves.size()));
         rivalMove.pp--;
 
         System.out.printf("%s used **%s**!\n", GameStatus.rivalCreature.name, rivalMove.name);
 
         GameStatus.playerActiveCreature.hasWindBarrierActive = false;
 
-        GameStatus.rivalCreature.activeMove = rivalMove;
+        GameStatus.rivalCreature.activeMove = (Move) rivalMove;
 
         rivalMove.effectObject.applyEffect(GameStatus.rivalCreature, GameStatus.playerActiveCreature);
     }
