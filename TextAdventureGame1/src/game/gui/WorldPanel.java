@@ -7,6 +7,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
@@ -14,8 +15,9 @@ import java.util.Set;
 public class WorldPanel extends JPanel implements Runnable {
     private Thread gameThread;
     private KeyHandler keyH = new KeyHandler();
-    // Add this field at the top with other fields
-    private java.util.ArrayList<Fighter> capturedTeam = new java.util.ArrayList<>();
+
+    // ✅ Team that persists across battles
+    private ArrayList<Fighter> capturedTeam = new ArrayList<>();
 
     private final int TILE_SIZE = 16;
     private final int SCALE = 9;
@@ -52,8 +54,23 @@ public class WorldPanel extends JPanel implements Runnable {
     private int mapHeight;
     private HashMap<Integer, BufferedImage> tileCache = new HashMap<>();
 
+    // ✅ Original constructor - first time entering world
     public WorldPanel(GameScene gameScene) {
+        this(gameScene, 4205, 5125, new ArrayList<>());
+    }
+
+    // ✅ Constructor with saved position only
+    public WorldPanel(GameScene gameScene, int startX, int startY) {
+        this(gameScene, startX, startY, new ArrayList<>());
+    }
+
+    // ✅ Full constructor with saved position AND team
+    public WorldPanel(GameScene gameScene, int startX, int startY, ArrayList<Fighter> team) {
         this.gameScene = gameScene;
+        this.playerX = startX;
+        this.playerY = startY;
+        this.capturedTeam = team;
+
         this.setPreferredSize(new Dimension(1280, 720));
         this.setBackground(Color.BLACK);
         this.setDoubleBuffered(true);
@@ -101,10 +118,13 @@ public class WorldPanel extends JPanel implements Runnable {
         return false;
     }
 
-    // NEW: Check if player is standing on tile 812
+    // ✅ Updated checkEncounter - saves position, passes team
     private void checkEncounter() {
         if (inBattle) return;
         if (allLayerData == null || allLayerData.length < 3) return;
+
+        // ✅ Don't trigger if still in cooldown
+        if (System.currentTimeMillis() < encounterCooldownUntil) return;
 
         int feetX = playerX + PLAYER_SIZE_W / 2;
         int feetY = playerY + PLAYER_SIZE_H;
@@ -115,24 +135,32 @@ public class WorldPanel extends JPanel implements Runnable {
         if (tileCol < 0 || tileRow < 0 ||
                 tileCol >= mapWidth || tileRow >= mapHeight) return;
 
-        // ✅ DEBUG: print tile ID every 60 frames to avoid console spam
-        if (System.currentTimeMillis() % 1000 < 16) {
-            System.out.println("Layer3 tile under player feet: "
-                    + allLayerData[2][tileRow][tileCol]);
-        }
-
         int layer3TileId = allLayerData[2][tileRow][tileCol];
         if (layer3TileId == 758) {
             if (Math.random() > 0.05) return;
 
             inBattle = true;
+            int savedX = playerX;
+            int savedY = playerY;
+
             game.battle.Fighter playerFighter = game.battle.Create.randomWildCreature();
             game.battle.Fighter wildFighter   = game.battle.Create.randomWildCreature();
             SwingUtilities.invokeLater(() ->
-                    gameScene.switchToBattle(playerFighter, wildFighter, () -> inBattle = false)
+                    gameScene.switchToBattle(playerFighter, wildFighter, capturedTeam,
+                            savedX, savedY, () -> {
+                                inBattle = false;
+                                // ✅ Normal battle end (won/lost) - no cooldown
+                                gameScene.switchToWorldAt(savedX, savedY, capturedTeam, false);
+                            })
             );
         }
     }
+    // ✅ Call this when player runs from battle
+    public void startEncounterCooldown() {
+        encounterCooldownUntil = System.currentTimeMillis() + ENCOUNTER_COOLDOWN_MS;
+    }
+
+
 
     public void start() {
         if (gameThread == null) {
@@ -312,7 +340,6 @@ public class WorldPanel extends JPanel implements Runnable {
         cameraX = Math.max(0, Math.min(cameraX, mapPixelWidth  - screenWidth));
         cameraY = Math.max(0, Math.min(cameraY, mapPixelHeight - screenHeight));
 
-        // NEW: check for battle encounter on tile 812
         checkEncounter();
     }
 
@@ -328,6 +355,9 @@ public class WorldPanel extends JPanel implements Runnable {
             }
         }
     }
+    // ✅ Cooldown to prevent immediate re-encounter after running
+    private long encounterCooldownUntil = 0;
+    private static final long ENCOUNTER_COOLDOWN_MS = 5000; // 5 seconds
 
     @Override
     protected void paintComponent(Graphics g) {

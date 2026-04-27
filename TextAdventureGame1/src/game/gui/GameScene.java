@@ -6,6 +6,7 @@ import game.core.ProgressionManager;
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
+import java.util.ArrayList;
 
 public class GameScene extends JFrame {
     private JTextArea textArea;
@@ -108,6 +109,7 @@ public class GameScene extends JFrame {
         }).start();
     }
 
+    // ✅ First time entering world - default position, empty team
     public void switchToWorld() {
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
@@ -128,19 +130,49 @@ public class GameScene extends JFrame {
         });
     }
 
-    // ✅ UPDATED: now accepts a Runnable onBattleEnd to reset inBattle in WorldPanel
-    // ✅ Save position and restore after battle instead of creating new WorldPanel
-    public void switchToBattle(Fighter userMon, Fighter oppMon, Runnable onBattleEnd) {
+    // ✅ Return to world at saved position with saved team
+    public void switchToWorldAt(int savedX, int savedY,
+                                ArrayList<Fighter> team, boolean playerRan) {
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
 
-            BattleScreen battle = new BattleScreen(userMon, oppMon, () -> {
-                if (onBattleEnd != null) onBattleEnd.run();
-                switchToWorld();
-            });
-            this.add(battle, BorderLayout.CENTER);
+            WorldPanel world = new WorldPanel(this, savedX, savedY, team);
+            this.add(world, BorderLayout.CENTER);
 
+            this.pack();
+            this.setLocationRelativeTo(null);
+            this.revalidate();
+            this.repaint();
+
+            SwingUtilities.invokeLater(() -> {
+                world.requestFocusInWindow();
+                world.start();
+                // ✅ Set cooldown if player ran away
+                if (playerRan) {
+                    world.startEncounterCooldown();
+                }
+            });
+        });
+    }
+
+    // ✅ Updated: accepts team for capture/switch feature
+    public void switchToBattle(Fighter userMon, Fighter oppMon,
+                               ArrayList<Fighter> team,
+                               int savedX, int savedY,
+                               Runnable onBattleEnd) {
+        SwingUtilities.invokeLater(() -> {
+            this.getContentPane().removeAll();
+            this.setLayout(new BorderLayout());
+
+            BattleScreen battle = new BattleScreen(userMon, oppMon, team, () -> {
+                if (onBattleEnd != null) onBattleEnd.run();
+            });
+
+            // ✅ Run = return with cooldown active
+            battle.setOnRun(() -> switchToWorldAt(savedX, savedY, team, true));
+
+            this.add(battle, BorderLayout.CENTER);
             this.pack();
             this.setLocationRelativeTo(null);
             this.revalidate();
