@@ -16,60 +16,67 @@ public class WorldPanel extends JPanel implements Runnable {
     private Thread gameThread;
     private KeyHandler keyH = new KeyHandler();
 
-    // ✅ Team that persists across battles
-    private ArrayList<Fighter> capturedTeam = new ArrayList<>();
+    private ArrayList<Fighter> capturedTeam;
+    private Fighter playerFighter;
+    private int scrollCount;
 
     private final int TILE_SIZE = 16;
     private final int SCALE = 9;
     private final int TILE_DISPLAY_SIZE = TILE_SIZE * SCALE;
 
-    // Player
-    private int playerX = 4205;
-    private int playerY = 5125;
+    private int playerX;
+    private int playerY;
     private final int PLAYER_SPEED = 4;
     private final int PLAYER_SIZE_W = 100;
     private final int PLAYER_SIZE_H = 120;
     private BufferedImage playerSheet;
 
-    // Animation
     private int frameCounter = 100;
-    private int frameDelay = 100;
+    private int frameDelay   = 100;
     private int currentFrame = 0;
-    private int currentRow = 0;
+    private int currentRow   = 0;
 
-    // Camera
     private int cameraX = 0;
     private int cameraY = 0;
 
-    // Collision
     private Set<Integer> solidTiles = new HashSet<>();
 
-    // Battle encounter
     private GameScene gameScene;
+
+    // ✅ inBattle prevents multiple triggers
     private boolean inBattle = false;
 
-    // Map
+    // ✅ cooldownUntil is a timestamp - System.currentTimeMillis() > cooldownUntil = ok to encounter
+    private long encounterCooldownUntil;
+
     private int[][][] allLayerData;
     private int mapWidth;
     private int mapHeight;
     private HashMap<Integer, BufferedImage> tileCache = new HashMap<>();
 
-    // ✅ Original constructor - first time entering world
+    // ✅ First time constructor
     public WorldPanel(GameScene gameScene) {
-        this(gameScene, 4205, 5125, new ArrayList<>());
+        this(gameScene, 4205, 5125,
+                new ArrayList<>(),
+                game.battle.Create.createPlayerStarter(),
+                3,
+                0L);
     }
 
-    // ✅ Constructor with saved position only
-    public WorldPanel(GameScene gameScene, int startX, int startY) {
-        this(gameScene, startX, startY, new ArrayList<>());
-    }
-
-    // ✅ Full constructor with saved position AND team
-    public WorldPanel(GameScene gameScene, int startX, int startY, ArrayList<Fighter> team) {
-        this.gameScene = gameScene;
-        this.playerX = startX;
-        this.playerY = startY;
-        this.capturedTeam = team;
+    // ✅ Full constructor - restores ALL state including cooldown
+    public WorldPanel(GameScene gameScene,
+                      int startX, int startY,
+                      ArrayList<Fighter> team,
+                      Fighter playerFighter,
+                      int scrollCount,
+                      long cooldownUntil) {
+        this.gameScene             = gameScene;
+        this.playerX               = startX;
+        this.playerY               = startY;
+        this.capturedTeam          = team;
+        this.playerFighter         = playerFighter;
+        this.scrollCount           = scrollCount;
+        this.encounterCooldownUntil = cooldownUntil; // ✅ restored directly
 
         this.setPreferredSize(new Dimension(1280, 720));
         this.setBackground(Color.BLACK);
@@ -79,8 +86,6 @@ public class WorldPanel extends JPanel implements Runnable {
 
         try {
             playerSheet = ImageIO.read(new File("resources/Texture/Avatar1.png"));
-            System.out.println("Player sheet: "
-                    + playerSheet.getWidth() + "x" + playerSheet.getHeight());
         } catch (Exception e) {
             System.err.println("Could not load player: " + e.getMessage());
         }
@@ -104,63 +109,52 @@ public class WorldPanel extends JPanel implements Runnable {
     private boolean isSolid(int worldX, int worldY) {
         int tileCol = worldX / TILE_DISPLAY_SIZE;
         int tileRow = worldY / TILE_DISPLAY_SIZE;
-
-        if (tileCol < 0 || tileRow < 0 || tileCol >= mapWidth || tileRow >= mapHeight) {
-            return true;
-        }
-
+        if (tileCol < 0 || tileRow < 0 ||
+                tileCol >= mapWidth || tileRow >= mapHeight) return true;
         for (int layer = 2; layer < allLayerData.length; layer++) {
-            int tileId = allLayerData[layer][tileRow][tileCol];
-            if (solidTiles.contains(tileId)) {
-                return true;
-            }
+            if (solidTiles.contains(allLayerData[layer][tileRow][tileCol])) return true;
         }
         return false;
     }
 
-    // ✅ Updated checkEncounter - saves position, passes team
     private void checkEncounter() {
         if (inBattle) return;
         if (allLayerData == null || allLayerData.length < 3) return;
 
-        // ✅ Don't trigger if still in cooldown
+        // ✅ Block if cooldown has not expired yet
         if (System.currentTimeMillis() < encounterCooldownUntil) return;
 
-        int feetX = playerX + PLAYER_SIZE_W / 2;
-        int feetY = playerY + PLAYER_SIZE_H;
-
+        int feetX   = playerX + PLAYER_SIZE_W / 2;
+        int feetY   = playerY + PLAYER_SIZE_H;
         int tileCol = feetX / TILE_DISPLAY_SIZE;
         int tileRow = feetY / TILE_DISPLAY_SIZE;
 
         if (tileCol < 0 || tileRow < 0 ||
                 tileCol >= mapWidth || tileRow >= mapHeight) return;
 
-        int layer3TileId = allLayerData[2][tileRow][tileCol];
-        if (layer3TileId == 758) {
+        if (allLayerData[2][tileRow][tileCol] == 758) {
             if (Math.random() > 0.05) return;
 
+            // ✅ Lock immediately so no second trigger
             inBattle = true;
+
             int savedX = playerX;
             int savedY = playerY;
 
-            game.battle.Fighter playerFighter = game.battle.Create.randomWildCreature();
-            game.battle.Fighter wildFighter   = game.battle.Create.randomWildCreature();
+            game.battle.Fighter wildFighter = game.battle.Create.randomWildCreature();
+
             SwingUtilities.invokeLater(() ->
-                    gameScene.switchToBattle(playerFighter, wildFighter, capturedTeam,
-                            savedX, savedY, () -> {
-                                inBattle = false;
-                                // ✅ Normal battle end (won/lost) - no cooldown
-                                gameScene.switchToWorldAt(savedX, savedY, capturedTeam, false);
-                            })
+                    // ✅ Pass savedX/savedY - GameScene handles all routing
+                    gameScene.switchToBattle(
+                            playerFighter,
+                            wildFighter,
+                            capturedTeam,
+                            scrollCount,
+                            savedX,
+                            savedY)
             );
         }
     }
-    // ✅ Call this when player runs from battle
-    public void startEncounterCooldown() {
-        encounterCooldownUntil = System.currentTimeMillis() + ENCOUNTER_COOLDOWN_MS;
-    }
-
-
 
     public void start() {
         if (gameThread == null) {
@@ -176,36 +170,27 @@ public class WorldPanel extends JPanel implements Runnable {
                 System.err.println("Map file not found: " + path);
                 return;
             }
-
             String content = new java.util.Scanner(file).useDelimiter("\\Z").next();
-
-            mapWidth = Integer.parseInt(content.split("width=\"")[1].split("\"")[0]);
+            mapWidth  = Integer.parseInt(content.split("width=\"")[1].split("\"")[0]);
             mapHeight = Integer.parseInt(content.split("height=\"")[1].split("\"")[0]);
-            System.out.println("Map size: " + mapWidth + "x" + mapHeight);
 
             String[] layers = content.split("<data encoding=\"csv\">");
-            System.out.println("Found " + (layers.length - 1) + " layers");
-
             allLayerData = new int[layers.length - 1][mapHeight][mapWidth];
 
             for (int l = 1; l < layers.length; l++) {
                 String csvData = layers[l].split("</data>")[0].trim();
                 String[] values = csvData.split(",");
-
                 for (int i = 0; i < values.length && i < mapWidth * mapHeight; i++) {
                     int row = i / mapWidth;
                     int col = i % mapWidth;
                     try {
-                        allLayerData[l - 1][row][col] = Integer.parseInt(values[i].trim());
+                        allLayerData[l-1][row][col] = Integer.parseInt(values[i].trim());
                     } catch (NumberFormatException e) {
-                        allLayerData[l - 1][row][col] = 0;
+                        allLayerData[l-1][row][col] = 0;
                     }
                 }
             }
-
-            System.out.println("All layers loaded!");
             loadTilesets(content);
-
         } catch (Exception e) {
             System.err.println("Error loading map: " + e.getMessage());
             e.printStackTrace();
@@ -215,62 +200,39 @@ public class WorldPanel extends JPanel implements Runnable {
     private void loadTilesets(String tmxContent) {
         try {
             String[] tilesetBlocks = tmxContent.split("<tileset ");
-
             for (int i = 1; i < tilesetBlocks.length; i++) {
-                String block = tilesetBlocks[i];
-
-                int firstGid = Integer.parseInt(block.split("firstgid=\"")[1].split("\"")[0]);
+                String block     = tilesetBlocks[i];
+                int firstGid     = Integer.parseInt(block.split("firstgid=\"")[1].split("\"")[0]);
                 String tsxSource = block.split("source=\"")[1].split("\"")[0];
 
                 File tsxFile = new File("resources/" + tsxSource);
                 if (!tsxFile.exists()) tsxFile = new File(tsxSource);
-                if (!tsxFile.exists()) {
-                    System.out.println("Cannot find tsx: " + tsxSource);
-                    continue;
-                }
+                if (!tsxFile.exists()) continue;
 
-                String tsxContent = new java.util.Scanner(tsxFile)
-                        .useDelimiter("\\Z").next();
-
-                int tileWidth = TILE_SIZE;
+                String tsxContent  = new java.util.Scanner(tsxFile).useDelimiter("\\Z").next();
+                int tileWidth  = TILE_SIZE;
                 int tileHeight = TILE_SIZE;
                 if (tsxContent.contains("tilewidth=\"")) {
-                    tileWidth = Integer.parseInt(
-                            tsxContent.split("tilewidth=\"")[1].split("\"")[0]);
-                    tileHeight = Integer.parseInt(
-                            tsxContent.split("tileheight=\"")[1].split("\"")[0]);
+                    tileWidth  = Integer.parseInt(tsxContent.split("tilewidth=\"")[1].split("\"")[0]);
+                    tileHeight = Integer.parseInt(tsxContent.split("tileheight=\"")[1].split("\"")[0]);
                 }
 
                 String imgSource = tsxContent.split("source=\"")[1].split("\"")[0];
-
                 File imgFile = new File("resources/" + imgSource);
-                if (!imgFile.exists()) {
-                    imgFile = new File("resources/Texture/" +
-                            new File(imgSource).getName());
-                }
-                if (!imgFile.exists()) {
-                    System.out.println("Cannot find image: " + imgSource);
-                    continue;
-                }
+                if (!imgFile.exists())
+                    imgFile = new File("resources/Texture/" + new File(imgSource).getName());
+                if (!imgFile.exists()) continue;
 
                 BufferedImage tilesetImage = ImageIO.read(imgFile);
-                System.out.println("Loaded: " + imgFile.getName()
-                        + " (" + tilesetImage.getWidth() + "x"
-                        + tilesetImage.getHeight() + ")"
-                        + " firstGid=" + firstGid);
-
-                int columns = tilesetImage.getWidth() / tileWidth;
-                int rows = tilesetImage.getHeight() / tileHeight;
+                int columns = tilesetImage.getWidth()  / tileWidth;
+                int rows    = tilesetImage.getHeight() / tileHeight;
 
                 for (int row = 0; row < rows; row++) {
                     for (int col = 0; col < columns; col++) {
-                        int localId = row * columns + col;
-                        int globalId = firstGid + localId;
-
-                        int srcX = col * tileWidth;
-                        int srcY = row * tileHeight;
-
-                        if (srcX + tileWidth > tilesetImage.getWidth() ||
+                        int globalId = firstGid + (row * columns + col);
+                        int srcX     = col * tileWidth;
+                        int srcY     = row * tileHeight;
+                        if (srcX + tileWidth  > tilesetImage.getWidth() ||
                                 srcY + tileHeight > tilesetImage.getHeight()) continue;
 
                         BufferedImage tileImg = tilesetImage.getSubimage(
@@ -280,25 +242,17 @@ public class WorldPanel extends JPanel implements Runnable {
                         Graphics2D tg = copy.createGraphics();
                         tg.drawImage(tileImg, 0, 0, null);
                         tg.dispose();
-
                         tileCache.put(globalId, copy);
                     }
                 }
-
-                System.out.println("Cached so far: " + tileCache.size());
             }
-
-            System.out.println("Total tiles cached: " + tileCache.size());
-
         } catch (Exception e) {
             System.err.println("Error loading tilesets: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 
     private void update() {
         boolean moving = false;
-
         int newX = playerX;
         int newY = playerY;
 
@@ -348,16 +302,10 @@ public class WorldPanel extends JPanel implements Runnable {
         while (gameThread != null) {
             update();
             repaint();
-            try {
-                Thread.sleep(16);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+            try { Thread.sleep(16); }
+            catch (InterruptedException e) { e.printStackTrace(); }
         }
     }
-    // ✅ Cooldown to prevent immediate re-encounter after running
-    private long encounterCooldownUntil = 0;
-    private static final long ENCOUNTER_COOLDOWN_MS = 5000; // 5 seconds
 
     @Override
     protected void paintComponent(Graphics g) {
@@ -365,7 +313,6 @@ public class WorldPanel extends JPanel implements Runnable {
         Graphics2D g2 = (Graphics2D) g;
 
         if (allLayerData != null) {
-
             for (int layer = 0; layer < allLayerData.length; layer++) {
                 for (int row = 0; row < mapHeight; row++) {
                     for (int col = 0; col < mapWidth; col++) {
@@ -393,25 +340,20 @@ public class WorldPanel extends JPanel implements Runnable {
             if (playerSheet != null) {
                 int frameWidth  = 25;
                 int frameHeight = 25;
-
                 int srcX = currentFrame * frameWidth;
                 int srcY = currentRow   * frameHeight;
-
                 g2.drawImage(playerSheet,
-                        playerScreenX,
-                        playerScreenY,
+                        playerScreenX, playerScreenY,
                         playerScreenX + PLAYER_SIZE_W,
                         playerScreenY + PLAYER_SIZE_H,
                         srcX, srcY,
                         srcX + frameWidth,
-                        srcY + frameHeight,
-                        null);
+                        srcY + frameHeight, null);
             } else {
                 g2.setColor(Color.RED);
                 g2.fillRect(playerScreenX, playerScreenY,
                         PLAYER_SIZE_W, PLAYER_SIZE_H);
             }
-
         } else {
             g2.setColor(Color.RED);
             g2.setFont(new Font("Arial", Font.BOLD, 20));

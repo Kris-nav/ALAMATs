@@ -1,5 +1,6 @@
 package game.gui;
 
+import game.battle.BattleCallback;
 import game.battle.BattleScreen;
 import game.battle.Fighter;
 import game.core.ProgressionManager;
@@ -20,9 +21,12 @@ public class GameScene extends JFrame {
     private final int W = 1280;
     private final int H = 720;
 
+    // ✅ Default spawn position
+    private static final int SPAWN_X = 4205;
+    private static final int SPAWN_Y = 5125;
+
     public GameScene(ProgressionManager pm) {
         this.progressionManager = pm;
-
         setTitle("ALAMAT - Journey");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
@@ -78,7 +82,6 @@ public class GameScene extends JFrame {
         textPanel.add(skipButton);
 
         layeredPane.add(textPanel, JLayeredPane.PALETTE_LAYER);
-
         pack();
         setLocationRelativeTo(null);
     }
@@ -100,7 +103,7 @@ public class GameScene extends JFrame {
         new Thread(() -> {
             for (char c : text.toCharArray()) {
                 addChar(String.valueOf(c));
-                try { Thread.sleep(30); } catch (InterruptedException e) {}
+                try { Thread.sleep(30); } catch (InterruptedException ex) {}
             }
             isTyping = false;
             SwingUtilities.invokeLater(() -> {
@@ -109,20 +112,17 @@ public class GameScene extends JFrame {
         }).start();
     }
 
-    // ✅ First time entering world - default position, empty team
+    // ✅ First time - fresh world, Santelmo, no cooldown
     public void switchToWorld() {
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
-
             WorldPanel world = new WorldPanel(this);
             this.add(world, BorderLayout.CENTER);
-
             this.pack();
             this.setLocationRelativeTo(null);
             this.revalidate();
             this.repaint();
-
             SwingUtilities.invokeLater(() -> {
                 world.requestFocusInWindow();
                 world.start();
@@ -130,47 +130,78 @@ public class GameScene extends JFrame {
         });
     }
 
-    // ✅ Return to world at saved position with saved team
-    public void switchToWorldAt(int savedX, int savedY,
-                                ArrayList<Fighter> team, boolean playerRan) {
+    // ✅ Return to world - pass exact cooldown timestamp
+    public void switchToWorldAt(int x, int y,
+                                ArrayList<Fighter> team,
+                                Fighter playerFighter,
+                                int scrollCount,
+                                long cooldownUntil) {
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
-
-            WorldPanel world = new WorldPanel(this, savedX, savedY, team);
+            WorldPanel world = new WorldPanel(
+                    this, x, y, team, playerFighter, scrollCount, cooldownUntil);
             this.add(world, BorderLayout.CENTER);
-
             this.pack();
             this.setLocationRelativeTo(null);
             this.revalidate();
             this.repaint();
-
             SwingUtilities.invokeLater(() -> {
                 world.requestFocusInWindow();
                 world.start();
-                // ✅ Set cooldown if player ran away
-                if (playerRan) {
-                    world.startEncounterCooldown();
-                }
             });
         });
     }
 
-    // ✅ Updated: accepts team for capture/switch feature
-    public void switchToBattle(Fighter userMon, Fighter oppMon,
+    // ✅ Launch battle - all logic for run/blackout handled HERE
+    public void switchToBattle(Fighter playerFighter,
+                               Fighter wildFighter,
                                ArrayList<Fighter> team,
-                               int savedX, int savedY,
-                               Runnable onBattleEnd) {
+                               int scrollCount,
+                               int savedX, int savedY) {
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
 
-            BattleScreen battle = new BattleScreen(userMon, oppMon, team, () -> {
-                if (onBattleEnd != null) onBattleEnd.run();
-            });
+            BattleScreen battle = new BattleScreen(
+                    playerFighter,
+                    wildFighter,
+                    team,
+                    scrollCount,
 
-            // ✅ Run = return with cooldown active
-            battle.setOnRun(() -> switchToWorldAt(savedX, savedY, team, true));
+                    // ✅ onBattleEnd - won, lost, or captured
+                    (updatedFighter, updatedTeam, updatedScrolls, blackout) -> {
+                        if (blackout) {
+                            // ✅ All fainted - go to SPAWN, no cooldown
+                            switchToWorldAt(
+                                    SPAWN_X, SPAWN_Y,
+                                    updatedTeam,
+                                    updatedFighter,
+                                    updatedScrolls,
+                                    0L); // ✅ no cooldown after blackout
+                        } else {
+                            // ✅ Normal win - return to saved position, no cooldown
+                            switchToWorldAt(
+                                    savedX, savedY,
+                                    updatedTeam,
+                                    updatedFighter,
+                                    updatedScrolls,
+                                    0L);
+                        }
+                    },
+
+                    // ✅ onRun - return to saved position WITH cooldown
+                    (updatedFighter, updatedTeam, updatedScrolls, blackout) -> {
+                        // ✅ Calculate cooldown end time right now
+                        long cooldownUntil = System.currentTimeMillis() + 5000L;
+                        switchToWorldAt(
+                                savedX, savedY,
+                                updatedTeam,
+                                updatedFighter,
+                                updatedScrolls,
+                                cooldownUntil); // ✅ pass cooldown so new WorldPanel respects it
+                    }
+            );
 
             this.add(battle, BorderLayout.CENTER);
             this.pack();

@@ -14,23 +14,24 @@ public class Fighter {
     public String message;
     public String sprite;
     public String back_sprite;
+    public boolean fainted = false; // ✅ track faint state
 
     public Fighter(String name, ArrayList<Type> types, ArrayList<Stat> stats,
                    ArrayList<Type> weak, ArrayList<Type> resist, ArrayList<Type> immune,
                    String sprite, String back_sprite) {
-        this.name = name;
-        this.types = types;
-        this.stats = stats;
-        this.moveset = new ArrayList<Move>();
-        this.weak = weak;
-        this.resist = resist;
-        this.immune = immune;
-        this.message = "";
-        this.sprite = sprite;
+        this.name       = name;
+        this.types      = types;
+        this.stats      = stats;
+        this.moveset    = new ArrayList<>();
+        this.weak       = weak;
+        this.resist     = resist;
+        this.immune     = immune;
+        this.message    = "";
+        this.sprite     = sprite;
         this.back_sprite = back_sprite;
     }
 
-    // ✅ KEEP ONLY THIS ONE - removes the broken empty duplicate
+    // ✅ Only this one addMove - no duplicates
     public void addMove(Move move) {
         this.moveset.add(move);
     }
@@ -38,7 +39,11 @@ public class Fighter {
     public void useMove(Fighter target, int id) {
         Move move = this.moveset.get(id);
         if (move.damage > 0) {
-            target.stats.get(0).value = Math.max(0, target.stats.get(0).value - damageCalc(move, this, target));
+            target.stats.get(0).value = Math.max(0,
+                    target.stats.get(0).value - damageCalc(move, this, target));
+            if (target.stats.get(0).value <= 0) {
+                target.fainted = true;
+            }
             if (target.weak.contains(move.type) && !target.resist.contains(move.type)) {
                 this.message = "It was super effective!";
             } else if (target.resist.contains(move.type)) {
@@ -65,10 +70,23 @@ public class Fighter {
     private double damageCalc(Move move, Fighter user, Fighter opp) {
         double damage = (22 * move.damage * (user.stats.get(1).value / opp.stats.get(2).value)) / 50 + 2;
         if (user.types.contains(move.type)) damage *= 1.5;
-        if (opp.weak.contains(move.type)) damage *= 2;
+        if (opp.weak.contains(move.type))   damage *= 2;
         if (opp.resist.contains(move.type)) damage *= 0.5;
         if (opp.immune.contains(move.type)) damage = 0;
         return damage;
+    }
+
+    public boolean isFainted() {
+        return stats.get(0).value <= 0;
+    }
+
+    // ✅ Check if all fighters in a team are fainted
+    public static boolean allFainted(ArrayList<Fighter> team, Fighter active) {
+        if (!active.isFainted()) return false;
+        for (Fighter f : team) {
+            if (!f.isFainted()) return false;
+        }
+        return true;
     }
 
     public int chooseMove(Fighter target) {

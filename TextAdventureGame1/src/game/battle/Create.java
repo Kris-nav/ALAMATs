@@ -29,6 +29,9 @@ public class Create {
         while (a.size() < 4) a.add(0.0);
         return a;
     }
+    public static Fighter createPlayerStarter() {
+        return createSantelmo(); // ✅ Player always starts with Santelmo
+    }
 
     private static ArrayList<Stat> stats(int h, int a, int d, int s) {
         ArrayList<Stat> list = new ArrayList<>();

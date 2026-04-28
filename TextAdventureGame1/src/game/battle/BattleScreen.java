@@ -9,11 +9,14 @@ public class BattleScreen extends JPanel implements ActionListener {
 
     private Fighter userMon;
     private Fighter oppMon;
-    private Runnable onBattleEnd;
+    private Fighter defaultMon;
 
-    // ✅ Team for capture and switch
+    private BattleCallback onBattleEnd;
+    private BattleCallback onRun;
+
     private ArrayList<Fighter> capturedTeam;
-    private int scrollCount = 3;
+    private int scrollCount;
+    private static final int MAX_TEAM_SIZE = 6;
 
     private JPanel botPanel;
     private JPanel pokePanel;
@@ -22,13 +25,16 @@ public class BattleScreen extends JPanel implements ActionListener {
     private JPanel textPanel;
     private JPanel statPanel;
     private JPanel healthPanel;
-    private JPanel bagPanel;    // ✅ new
-    private JPanel switchPanel; // ✅ new
+    private JPanel bagPanel;
+    private JPanel switchPanel;
 
     private JLabel moveUsed;
     private JLabel userPokemon;
     private JLabel oppPokemon;
     private JLabel statUsed;
+    private JLabel userHpLabel;
+    private JLabel oppHpLabel;
+    private JLabel userNameLbl;
 
     private JButton fightBtn;
     private JButton bagBtn;
@@ -45,18 +51,19 @@ public class BattleScreen extends JPanel implements ActionListener {
     private int step = 2;
     private int offset = 0;
 
-    // ✅ Updated constructor - takes team
-    public BattleScreen(Fighter userMon, Fighter oppMon,
-                        ArrayList<Fighter> capturedTeam, Runnable onBattleEnd) {
-        this.userMon = userMon;
-        this.oppMon = oppMon;
+    public BattleScreen(Fighter defaultMon,
+                        Fighter oppMon,
+                        ArrayList<Fighter> capturedTeam,
+                        int scrollCount,
+                        BattleCallback onBattleEnd,
+                        BattleCallback onRun) {
+        this.defaultMon  = defaultMon;
+        this.userMon     = defaultMon;
+        this.oppMon      = oppMon;
         this.capturedTeam = capturedTeam;
+        this.scrollCount = scrollCount;
         this.onBattleEnd = onBattleEnd;
-
-        // ✅ Add player's fighter to team if not already there
-        if (!capturedTeam.contains(userMon)) {
-            capturedTeam.add(0, userMon);
-        }
+        this.onRun       = onRun;
 
         setLayout(new BorderLayout());
         setBackground(Color.BLACK);
@@ -88,16 +95,29 @@ public class BattleScreen extends JPanel implements ActionListener {
         JPanel namePanel = new JPanel(new GridLayout(1, 2));
         namePanel.setOpaque(false);
         namePanel.setBorder(BorderFactory.createEmptyBorder(2, 40, 2, 40));
-        JLabel userNameLbl = new JLabel(userMon.name, SwingConstants.CENTER);
-        JLabel oppNameLbl  = new JLabel(oppMon.name,  SwingConstants.CENTER);
+        userNameLbl = new JLabel(userMon.name, SwingConstants.CENTER);
+        JLabel oppNameLbl = new JLabel(oppMon.name, SwingConstants.CENTER);
         styleLabel(userNameLbl);
         styleLabel(oppNameLbl);
         namePanel.add(userNameLbl);
         namePanel.add(oppNameLbl);
 
+        // ── HP Labels ─────────────────────────────────────────────
+        JPanel hpLabelPanel = new JPanel(new GridLayout(1, 2));
+        hpLabelPanel.setOpaque(false);
+        hpLabelPanel.setBorder(BorderFactory.createEmptyBorder(0, 40, 0, 40));
+        userHpLabel = new JLabel(getHpText(userMon), SwingConstants.CENTER);
+        oppHpLabel  = new JLabel(getHpText(oppMon),  SwingConstants.CENTER);
+        userHpLabel.setForeground(new Color(0x55cb0b));
+        oppHpLabel.setForeground(Color.RED);
+        userHpLabel.setFont(new Font("Monospaced", Font.BOLD, 13));
+        oppHpLabel.setFont(new Font("Monospaced", Font.BOLD, 13));
+        hpLabelPanel.add(userHpLabel);
+        hpLabelPanel.add(oppHpLabel);
+
         // ── Health bars ───────────────────────────────────────────
         healthPanel = new JPanel(new GridLayout(1, 2));
-        healthPanel.setBorder(BorderFactory.createEmptyBorder(5, 30, 5, 30));
+        healthPanel.setBorder(BorderFactory.createEmptyBorder(0, 30, 5, 30));
         healthPanel.setOpaque(false);
         userHealth = buildBar(userMon, new Color(0x55cb0b));
         oppHealth  = buildBar(oppMon,  Color.RED);
@@ -106,9 +126,14 @@ public class BattleScreen extends JPanel implements ActionListener {
 
         JPanel topArea = new JPanel(new BorderLayout());
         topArea.setOpaque(false);
-        topArea.add(pokePanel,   BorderLayout.NORTH);
-        topArea.add(namePanel,   BorderLayout.CENTER);
-        topArea.add(healthPanel, BorderLayout.SOUTH);
+        topArea.add(pokePanel, BorderLayout.NORTH);
+        topArea.add(namePanel, BorderLayout.CENTER);
+
+        JPanel hpAndBars = new JPanel(new GridLayout(2, 1));
+        hpAndBars.setOpaque(false);
+        hpAndBars.add(hpLabelPanel);
+        hpAndBars.add(healthPanel);
+        topArea.add(hpAndBars, BorderLayout.SOUTH);
         bgPanel.add(topArea, BorderLayout.CENTER);
 
         // ── Bottom CardLayout ─────────────────────────────────────
@@ -122,8 +147,8 @@ public class BattleScreen extends JPanel implements ActionListener {
         menuPanel.setOpaque(false);
         menuPanel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
         fightBtn    = menuBtn("FIGHT",    new Color(0xba1010));
-        bagBtn      = menuBtn("BAG (" + scrollCount + " Scrolls)", new Color(0x329dfc));
-        creatureBtn = menuBtn("CREATURE (" + capturedTeam.size() + ")", new Color(0x55cb0b));
+        bagBtn      = menuBtn("BAG - Scrolls: " + scrollCount, new Color(0x329dfc));
+        creatureBtn = menuBtn("CREATURE (" + capturedTeam.size() + "/" + (MAX_TEAM_SIZE - 1) + ")", new Color(0x55cb0b));
         runBtn      = menuBtn("RUN",      new Color(0x9b7b60));
         fightBtn.addActionListener(this);
         bagBtn.addActionListener(this);
@@ -138,14 +163,7 @@ public class BattleScreen extends JPanel implements ActionListener {
         movePanel = new JPanel(new GridLayout(2, 2, 5, 5));
         movePanel.setOpaque(false);
         movePanel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-        move1 = moveBtn(userMon.moveset.get(0));
-        move2 = moveBtn(userMon.moveset.get(1));
-        move3 = moveBtn(userMon.moveset.get(2));
-        move4 = moveBtn(userMon.moveset.get(3));
-        movePanel.add(move1);
-        movePanel.add(move2);
-        movePanel.add(move3);
-        movePanel.add(move4);
+        rebuildMovePanel();
 
         // Card: TEXT
         textPanel = new JPanel(new BorderLayout());
@@ -163,12 +181,12 @@ public class BattleScreen extends JPanel implements ActionListener {
         statUsed.setFont(new Font("Monospaced", Font.BOLD, 18));
         statPanel.add(statUsed, BorderLayout.CENTER);
 
-        // Card: BAG ✅
+        // Card: BAG
         bagPanel = new JPanel();
         bagPanel.setOpaque(false);
         rebuildBagPanel();
 
-        // Card: SWITCH ✅
+        // Card: SWITCH
         switchPanel = new JPanel();
         switchPanel.setOpaque(false);
         rebuildSwitchPanel();
@@ -177,8 +195,8 @@ public class BattleScreen extends JPanel implements ActionListener {
         botPanel.add(movePanel,   "Moves");
         botPanel.add(textPanel,   "Used");
         botPanel.add(statPanel,   "Stat");
-        botPanel.add(bagPanel,    "Bag");    // ✅
-        botPanel.add(switchPanel, "Switch"); // ✅
+        botPanel.add(bagPanel,    "Bag");
+        botPanel.add(switchPanel, "Switch");
 
         bgPanel.add(botPanel, BorderLayout.SOUTH);
         add(bgPanel, BorderLayout.CENTER);
@@ -186,15 +204,53 @@ public class BattleScreen extends JPanel implements ActionListener {
         showCard("Menu");
     }
 
-    // ✅ Bag panel with scroll button
+    // ── Helpers ───────────────────────────────────────────────────
+
+    private String getHpText(Fighter f) {
+        return "HP: " + (int) f.stats.get(0).value + " / " + (int) f.stats.get(0).base;
+    }
+
+    private void rebuildMovePanel() {
+        movePanel.removeAll();
+        move1 = moveBtnWithPP(userMon.moveset.get(0));
+        move2 = moveBtnWithPP(userMon.moveset.get(1));
+        move3 = moveBtnWithPP(userMon.moveset.get(2));
+        move4 = moveBtnWithPP(userMon.moveset.get(3));
+        movePanel.add(move1);
+        movePanel.add(move2);
+        movePanel.add(move3);
+        movePanel.add(move4);
+        movePanel.revalidate();
+        movePanel.repaint();
+    }
+
+    private JButton moveBtnWithPP(Move move) {
+        Color ppColor = move.pp <= 2 ? new Color(0xaa0000) : move.type.color;
+        String label  = "<html><center>" + move.name +
+                "<br><font size='3'>PP " + move.pp + "/" + move.maxPp +
+                "</font></center></html>";
+        JButton btn = new JButton(label);
+        btn.setBackground(ppColor);
+        btn.setForeground(Color.WHITE);
+        btn.setFont(new Font("Monospaced", Font.BOLD, 13));
+        btn.setFocusPainted(false);
+        btn.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
+        btn.addActionListener(this);
+        if (move.pp <= 0) {
+            btn.setEnabled(false);
+            btn.setText("<html><center>" + move.name +
+                    "<br><font size='3'>No PP!</font></center></html>");
+        }
+        return btn;
+    }
+
     private void rebuildBagPanel() {
         bagPanel.removeAll();
         bagPanel.setLayout(new GridLayout(1, 2, 10, 10));
         bagPanel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
 
-        JButton scrollBtn = menuBtn("SCROLL (" + scrollCount + ")", new Color(0x9b3fcf));
+        JButton scrollBtn = menuBtn("SCROLL (" + scrollCount + " left)", new Color(0x9b3fcf));
         JButton backBtn   = menuBtn("BACK", new Color(0x555555));
-
         scrollBtn.addActionListener(e -> useScroll());
         backBtn.addActionListener(e -> showCard("Menu"));
 
@@ -204,44 +260,84 @@ public class BattleScreen extends JPanel implements ActionListener {
         bagPanel.repaint();
     }
 
-    // ✅ Switch panel with all captured creatures
     private void rebuildSwitchPanel() {
         switchPanel.removeAll();
         switchPanel.setLayout(new BorderLayout());
-        switchPanel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        switchPanel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 
-        JPanel btnGrid = new JPanel(new GridLayout(
-                1, Math.max(1, capturedTeam.size() + 1), 5, 5));
+        JPanel topRow = new JPanel(new BorderLayout());
+        topRow.setOpaque(false);
+        JLabel titleLbl = new JLabel(
+                "Your Team  |  Active: " + userMon.name,
+                SwingConstants.LEFT);
+        titleLbl.setForeground(Color.YELLOW);
+        titleLbl.setFont(new Font("Monospaced", Font.BOLD, 13));
+        topRow.add(titleLbl, BorderLayout.WEST);
+
+        JButton backBtn = menuBtn("BACK", new Color(0x555555));
+        backBtn.addActionListener(e -> showCard("Menu"));
+        topRow.add(backBtn, BorderLayout.EAST);
+        switchPanel.add(topRow, BorderLayout.NORTH);
+
+        // ✅ Santelmo first, then captured
+        ArrayList<Fighter> fullTeam = new ArrayList<>();
+        fullTeam.add(defaultMon);
+        fullTeam.addAll(capturedTeam);
+
+        int displayCount = Math.min(fullTeam.size(), MAX_TEAM_SIZE);
+
+        JPanel btnGrid = new JPanel(new GridLayout(2, 3, 8, 8));
         btnGrid.setOpaque(false);
 
-        for (int i = 0; i < capturedTeam.size(); i++) {
-            Fighter f = capturedTeam.get(i);
-            boolean isActive = (f == userMon);
-            Color bg = isActive ? new Color(0x888888) : new Color(0x55cb0b);
-            JButton btn = menuBtn(f.name + (isActive ? " (Active)" : ""), bg);
-            if (!isActive) {
-                final int idx = i;
-                btn.addActionListener(e -> switchTo(idx));
-            } else {
+        for (int i = 0; i < displayCount; i++) {
+            Fighter f        = fullTeam.get(i);
+            boolean isActive  = (f == userMon);
+            boolean isFainted = f.isFainted();
+
+            Color bg = isActive  ? new Color(0x888888)
+                    : isFainted ? new Color(0x550000)
+                      :             new Color(0x2a6e2a);
+
+            String label = "<html><center>" + f.name +
+                    (isActive  ? " ★" : "") +
+                    (isFainted ? " ✗" : "") +
+                    "<br><font size='3'>HP: " + (int) f.stats.get(0).value +
+                    "/" + (int) f.stats.get(0).base +
+                    "</font></center></html>";
+
+            JButton btn = menuBtn(label, bg);
+
+            if (isActive || isFainted) {
                 btn.setEnabled(false);
+            } else {
+                final Fighter target = f; // ✅ capture Fighter directly not index
+                btn.addActionListener(e -> switchTo(target));
             }
             btnGrid.add(btn);
         }
 
-        JButton backBtn = menuBtn("BACK", new Color(0x555555));
-        backBtn.addActionListener(e -> showCard("Menu"));
-        btnGrid.add(backBtn);
+        // Fill empty slots
+        for (int i = displayCount; i < MAX_TEAM_SIZE; i++) {
+            JPanel empty = new JPanel();
+            empty.setOpaque(false);
+            btnGrid.add(empty);
+        }
 
         switchPanel.add(btnGrid, BorderLayout.CENTER);
         switchPanel.revalidate();
         switchPanel.repaint();
     }
 
-    // ✅ Switch active fighter
-    private void switchTo(int index) {
-        userMon = capturedTeam.get(index);
+    private void switchTo(Fighter newFighter) {
+        if (newFighter.isFainted()) {
+            showMessage(newFighter.name + " has fainted and can't battle!",
+                    () -> showCard("Switch"));
+            return;
+        }
 
-        // Update sprite
+        userMon = newFighter;
+        userNameLbl.setText(userMon.name);
+
         pokePanel.removeAll();
         userPokemon = loadSprite(userMon.back_sprite);
         pokePanel.add(userPokemon);
@@ -249,54 +345,50 @@ public class BattleScreen extends JPanel implements ActionListener {
         pokePanel.revalidate();
         pokePanel.repaint();
 
-        // Update health bar
         userHealth.setMaximum((int) userMon.stats.get(0).base);
         userHealth.setValue((int) userMon.stats.get(0).value);
+        userHpLabel.setText(getHpText(userMon));
 
-        // Update move buttons
-        movePanel.removeAll();
-        move1 = moveBtn(userMon.moveset.get(0));
-        move2 = moveBtn(userMon.moveset.get(1));
-        move3 = moveBtn(userMon.moveset.get(2));
-        move4 = moveBtn(userMon.moveset.get(3));
-        movePanel.add(move1);
-        movePanel.add(move2);
-        movePanel.add(move3);
-        movePanel.add(move4);
-        movePanel.revalidate();
-        movePanel.repaint();
+        rebuildMovePanel();
 
-        creatureBtn.setText("CREATURE (" + capturedTeam.size() + ")");
+        creatureBtn.setText("CREATURE (" + capturedTeam.size() +
+                "/" + (MAX_TEAM_SIZE - 1) + ")");
         rebuildSwitchPanel();
 
         showMessage("Go! " + userMon.name + "!", () -> showCard("Menu"));
     }
 
-    // ✅ Use scroll to capture
     private void useScroll() {
         if (scrollCount <= 0) {
             showMessage("No scrolls left!", () -> showCard("Menu"));
             return;
         }
+        if (capturedTeam.size() >= MAX_TEAM_SIZE - 1) {
+            showMessage("Team is full! (Max " + (MAX_TEAM_SIZE - 1) + " captured)",
+                    () -> showCard("Menu"));
+            return;
+        }
+
         scrollCount--;
         rebuildBagPanel();
-        bagBtn.setText("BAG (" + scrollCount + " Scrolls)");
+        bagBtn.setText("BAG - Scrolls: " + scrollCount);
 
-        // Catch chance: lower opp HP = higher chance
-        double hpPercent = oppMon.stats.get(0).value / oppMon.stats.get(0).base;
+        double hpPercent   = oppMon.stats.get(0).value / oppMon.stats.get(0).base;
         double catchChance = Math.max(0.1, Math.min(0.9, 0.8 - (hpPercent * 0.6)));
 
         if (Math.random() < catchChance) {
-            // ✅ Captured!
             capturedTeam.add(oppMon);
-            creatureBtn.setText("CREATURE (" + capturedTeam.size() + ")");
+            creatureBtn.setText("CREATURE (" + capturedTeam.size() +
+                    "/" + (MAX_TEAM_SIZE - 1) + ")");
             showMessage(oppMon.name + " was captured!", () ->
-                    showMessage("Added to your team!", () -> {
-                        if (onBattleEnd != null) onBattleEnd.run();
+                    showMessage("Team: " + capturedTeam.size() +
+                            "/" + (MAX_TEAM_SIZE - 1), () -> {
+                        if (onBattleEnd != null)
+                            onBattleEnd.onComplete(
+                                    userMon, capturedTeam, scrollCount, false);
                     })
             );
         } else {
-            // ✅ Broke free - opp gets a free attack
             showMessage(oppMon.name + " broke free!", () -> {
                 int oppMove = oppMon.chooseMove(userMon);
                 handleMove(oppMove, oppMove, oppMon, userMon, 1);
@@ -304,17 +396,33 @@ public class BattleScreen extends JPanel implements ActionListener {
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────
+    private boolean allPlayerFainted() {
+        if (!defaultMon.isFainted()) return false;
+        for (Fighter f : capturedTeam) {
+            if (!f.isFainted()) return false;
+        }
+        return true;
+    }
+
+    private Fighter findNextAvailable() {
+        if (!defaultMon.isFainted()) return defaultMon;
+        for (Fighter f : capturedTeam) {
+            if (!f.isFainted()) return f;
+        }
+        return null;
+    }
+
     private void styleLabel(JLabel lbl) {
         lbl.setForeground(Color.WHITE);
         lbl.setFont(new Font("Monospaced", Font.BOLD, 14));
     }
 
     private JProgressBar buildBar(Fighter f, Color color) {
-        JProgressBar bar = new JProgressBar(0, (int) f.stats.get(0).value);
+        JProgressBar bar = new JProgressBar(0, (int) f.stats.get(0).base);
         bar.setValue((int) f.stats.get(0).value);
-        bar.setStringPainted(true);
+        bar.setStringPainted(false);
         bar.setForeground(color);
+        bar.setBackground(new Color(60, 60, 60));
         return bar;
     }
 
@@ -323,7 +431,7 @@ public class BattleScreen extends JPanel implements ActionListener {
             java.net.URL url = getClass().getResource(path);
             if (url != null) {
                 ImageIcon icon = new ImageIcon(url);
-                Image scaled = icon.getImage()
+                Image scaled   = icon.getImage()
                         .getScaledInstance(130, 130, Image.SCALE_SMOOTH);
                 return new JLabel(new ImageIcon(scaled));
             }
@@ -338,19 +446,9 @@ public class BattleScreen extends JPanel implements ActionListener {
         JButton btn = new JButton(text);
         btn.setBackground(bg);
         btn.setForeground(Color.WHITE);
-        btn.setFont(new Font("Monospaced", Font.BOLD, 16));
-        btn.setFocusPainted(false);
-        btn.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
-        return btn;
-    }
-
-    private JButton moveBtn(Move move) {
-        JButton btn = new JButton(move.toString());
-        btn.setBackground(move.type.color); // ✅ fixed
-        btn.setForeground(Color.WHITE);
         btn.setFont(new Font("Monospaced", Font.BOLD, 14));
         btn.setFocusPainted(false);
-        btn.addActionListener(this);
+        btn.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
         return btn;
     }
 
@@ -366,40 +464,44 @@ public class BattleScreen extends JPanel implements ActionListener {
             if (after != null) after.run();
         }).start();
     }
-    // ✅ Add this field to BattleScreen
-    private Runnable onRun;
-
-    // ✅ Add setter
-    public void setOnRun(Runnable onRun) {
-        this.onRun = onRun;
-    }
 
     // ── Action Handling ───────────────────────────────────────────
+
     @Override
     public void actionPerformed(ActionEvent e) {
         Object src = e.getSource();
 
         if (src == fightBtn) {
             showCard("Moves");
+
         } else if (src == bagBtn) {
-            showCard("Bag"); // ✅ opens bag with scroll
+            showCard("Bag");
+
         } else if (src == creatureBtn) {
             rebuildSwitchPanel();
-            showCard("Switch"); // ✅ opens switch menu
+            showCard("Switch");
+
         } else if (src == runBtn) {
+            // ✅ run - blackout false
             showMessage("You ran away safely!", () -> {
-                // ✅ Call onRun instead of onBattleEnd if set
-                if (onRun != null) onRun.run();
-                else if (onBattleEnd != null) onBattleEnd.run();
+                if (onRun != null)
+                    onRun.onComplete(userMon, capturedTeam, scrollCount, false);
             });
-        }else {
+
+        } else {
             int mi = -1;
-            if (src == move1) mi = 0;
+            if (src == move1)      mi = 0;
             else if (src == move2) mi = 1;
             else if (src == move3) mi = 2;
             else if (src == move4) mi = 3;
 
             if (mi >= 0) {
+                Move chosen = userMon.moveset.get(mi);
+                if (chosen.pp <= 0) {
+                    showMessage("No PP left for " + chosen.name + "!",
+                            () -> showCard("Moves"));
+                    return;
+                }
                 if (userMon.stats.get(3).value >= oppMon.stats.get(3).value) {
                     handleMove(mi, oppMon.chooseMove(userMon), userMon, oppMon, 0);
                 } else {
@@ -411,7 +513,17 @@ public class BattleScreen extends JPanel implements ActionListener {
 
     private void handleMove(int userMove, int oppMove,
                             Fighter user, Fighter opp, int turn) {
-        moveUsed.setText(user.name + " used " + user.moveset.get(userMove).name + "!");
+        Move move = user.moveset.get(userMove);
+
+        // ✅ Deduct PP only for player moves
+        if (user == userMon) {
+            move.pp = Math.max(0, move.pp - 1);
+            rebuildMovePanel();
+        }
+
+        String ppInfo = (user == userMon)
+                ? " (PP: " + move.pp + "/" + move.maxPp + ")" : "";
+        moveUsed.setText(user.name + " used " + move.name + "!" + ppInfo);
         showCard("Used");
         user.useMove(opp, userMove);
 
@@ -420,25 +532,61 @@ public class BattleScreen extends JPanel implements ActionListener {
             public void actionPerformed(ActionEvent evt) {
                 ((Timer) evt.getSource()).stop();
 
+                // ✅ Update bars and labels
                 oppHealth.setValue((int) Math.max(0, Math.ceil(oppMon.stats.get(0).value)));
                 userHealth.setValue((int) Math.max(0, Math.ceil(userMon.stats.get(0).value)));
+                userHpLabel.setText(getHpText(userMon));
+                oppHpLabel.setText(getHpText(oppMon));
+
+                // ✅ HP color warning
+                double hpRatio = userMon.stats.get(0).value / userMon.stats.get(0).base;
+                if (hpRatio <= 0.25)     userHpLabel.setForeground(Color.RED);
+                else if (hpRatio <= 0.5) userHpLabel.setForeground(Color.YELLOW);
+                else                     userHpLabel.setForeground(new Color(0x55cb0b));
 
                 animatePokemon(user);
 
-                if (userMon.stats.get(0).value <= 0 || oppMon.stats.get(0).value <= 0) {
-                    String faintMsg = userMon.stats.get(0).value <= 0
-                            ? userMon.name + " fainted!"
-                            : oppMon.name + " fainted!";
-                    String resultMsg = userMon.stats.get(0).value <= 0
-                            ? "You lost..." : "You won!";
-                    showMessage(faintMsg, () ->
-                            showMessage(resultMsg, () -> {
-                                if (onBattleEnd != null) onBattleEnd.run();
+                // ✅ Opp fainted - player wins
+                if (oppMon.stats.get(0).value <= 0) {
+                    showMessage(oppMon.name + " fainted!", () ->
+                            showMessage("You won!", () -> {
+                                if (onBattleEnd != null)
+                                    onBattleEnd.onComplete(
+                                            userMon, capturedTeam, scrollCount, false);
                             })
                     );
                     return;
                 }
 
+                // ✅ Active fighter fainted
+                if (userMon.stats.get(0).value <= 0) {
+                    showMessage(userMon.name + " fainted!", () -> {
+                        if (allPlayerFainted()) {
+                            // ✅ Blackout - heal everyone, go to start
+                            showMessage("All your creatures fainted!", () ->
+                                    showMessage("You blacked out...", () -> {
+                                        healAllFighters();
+                                        if (onBattleEnd != null)
+                                            onBattleEnd.onComplete(
+                                                    defaultMon, capturedTeam,
+                                                    scrollCount, true); // ✅ blackout=true
+                                    })
+                            );
+                        } else {
+                            // ✅ Still have fighters - force switch
+                            Fighter next = findNextAvailable();
+                            showMessage("Choose your next creature!", () -> {
+                                if (next != null) {
+                                    switchTo(next);
+                                    showCard("Switch");
+                                }
+                            });
+                        }
+                    });
+                    return;
+                }
+
+                // ✅ Show stat message then continue
                 String msg = !userMon.message.isEmpty() ? userMon.message
                         : !oppMon.message.isEmpty() ? oppMon.message : "";
                 userMon.message = "";
@@ -457,9 +605,24 @@ public class BattleScreen extends JPanel implements ActionListener {
         }).start();
     }
 
+    private void healAllFighters() {
+        healFighter(defaultMon);
+        for (Fighter f : capturedTeam) {
+            healFighter(f);
+        }
+    }
+
+    private void healFighter(Fighter f) {
+        f.stats.get(0).value = f.stats.get(0).base;
+        f.fainted = false;
+        for (Move m : f.moveset) {
+            m.pp = m.maxPp;
+        }
+    }
+
     private void animatePokemon(Fighter attacker) {
-        JLabel sprite = (attacker == userMon) ? userPokemon : oppPokemon;
-        int originalY = sprite.getY();
+        JLabel sprite    = (attacker == userMon) ? userPokemon : oppPokemon;
+        int originalY    = sprite.getY();
         goingUp = true;
         offset  = 0;
         Timer t = new Timer(15, null);
