@@ -14,14 +14,12 @@ public class CharacterCreationScene extends JFrame {
     private String finalName   = "";
     private int    finalAge    = 0;
     private String finalGender = "";
-
-    private boolean confirmed = false;
+    private boolean confirmed  = false;
 
     public CharacterCreationScene() {
         setTitle("ALAMAT - Character Creation");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         setResizable(false);
-        setUndecorated(false);
 
         int W = 600, H = 420;
         JPanel root = new JPanel(null) {
@@ -31,25 +29,20 @@ public class CharacterCreationScene extends JFrame {
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                         RenderingHints.VALUE_ANTIALIAS_ON);
-                // Dark bg
                 g2.setColor(new Color(18, 12, 5));
                 g2.fillRect(0, 0, getWidth(), getHeight());
-                // Border
                 g2.setColor(new Color(170, 120, 50));
                 g2.setStroke(new BasicStroke(3));
                 g2.drawRoundRect(10, 10, getWidth() - 20, getHeight() - 20, 16, 16);
-                // Title bar bg
                 g2.setColor(new Color(60, 38, 8));
                 g2.fillRoundRect(10, 10, getWidth() - 20, 56, 16, 16);
                 g2.fillRect(10, 36, getWidth() - 20, 30);
-                // Title text
                 g2.setColor(new Color(255, 215, 90));
                 g2.setFont(new Font("Monospaced", Font.BOLD, 22));
                 FontMetrics fm = g2.getFontMetrics();
                 String title = "WELCOME TO ALAMAT";
                 g2.drawString(title,
                         (getWidth() - fm.stringWidth(title)) / 2, 50);
-                // Divider
                 g2.setColor(new Color(170, 120, 50));
                 g2.setStroke(new BasicStroke(1.5f));
                 g2.drawLine(30, 68, getWidth() - 30, 68);
@@ -57,50 +50,51 @@ public class CharacterCreationScene extends JFrame {
         };
         root.setPreferredSize(new Dimension(W, H));
 
-        // ── Name field ───────────────────────────────────────────
+        // Name
         addLabel(root, "Name:", 30, 100);
         nameField = new JTextField();
         styleField(nameField);
         nameField.setBounds(180, 88, 380, 38);
         root.add(nameField);
 
-        // ── Age field ────────────────────────────────────────────
+        // Age
         addLabel(root, "Age:", 30, 162);
         ageField = new JTextField();
         styleField(ageField);
         ageField.setBounds(180, 150, 380, 38);
         root.add(ageField);
 
-        // ── Gender field ─────────────────────────────────────────
+        // Gender
         addLabel(root, "Gender (M/F):", 30, 224);
         genderField = new JTextField();
         styleField(genderField);
         genderField.setBounds(180, 212, 380, 38);
         root.add(genderField);
 
-        // ── Error label ──────────────────────────────────────────
+        // Error label
         errorLabel = new JLabel("", SwingConstants.CENTER);
         errorLabel.setForeground(new Color(220, 60, 60));
         errorLabel.setFont(new Font("Monospaced", Font.BOLD, 12));
         errorLabel.setBounds(30, 262, 540, 20);
         root.add(errorLabel);
 
-        // ── Rules hint ───────────────────────────────────────────
-        JLabel hint1 = new JLabel("• Name must not contain numbers");
-        JLabel hint2 = new JLabel("• Age must be 18 or older");
-        JLabel hint3 = new JLabel("• Type M or F for gender");
-        for (JLabel h : new JLabel[]{hint1, hint2, hint3}) {
-            h.setForeground(new Color(140, 140, 140));
-            h.setFont(new Font("Monospaced", Font.PLAIN, 11));
+        // Hints
+        String[] hints = {
+                "• Name must not contain numbers",
+                "• Age must be 18 or older",
+                "• Type M or F for gender"
+        };
+        int hy = 284;
+        for (String h : hints) {
+            JLabel hl = new JLabel(h);
+            hl.setForeground(new Color(140, 140, 140));
+            hl.setFont(new Font("Monospaced", Font.PLAIN, 11));
+            hl.setBounds(30, hy, 540, 16);
+            root.add(hl);
+            hy += 16;
         }
-        hint1.setBounds(30, 284, 540, 16);
-        hint2.setBounds(30, 300, 540, 16);
-        hint3.setBounds(30, 316, 540, 16);
-        root.add(hint1);
-        root.add(hint2);
-        root.add(hint3);
 
-        // ── OK button ────────────────────────────────────────────
+        // BEGIN ADVENTURE button
         JButton okBtn = new JButton("BEGIN ADVENTURE") {
             @Override
             protected void paintComponent(Graphics g) {
@@ -113,7 +107,7 @@ public class CharacterCreationScene extends JFrame {
                           ? new Color(50, 160, 70)
                           : new Color(40, 130, 55));
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
-                g2.setColor(new Color(255, 255, 255));
+                g2.setColor(Color.WHITE);
                 g2.setFont(new Font("Monospaced", Font.BOLD, 15));
                 FontMetrics fm = g2.getFontMetrics();
                 g2.drawString(getText(),
@@ -128,15 +122,12 @@ public class CharacterCreationScene extends JFrame {
         okBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         okBtn.setBounds(150, 348, 300, 46);
         okBtn.addActionListener(e -> tryConfirm());
-
-        // Allow Enter key to submit
         getRootPane().setDefaultButton(okBtn);
         root.add(okBtn);
 
         setContentPane(root);
         pack();
         setLocationRelativeTo(null);
-        setVisible(true);
     }
 
     private void addLabel(JPanel panel, String text, int x, int y) {
@@ -162,7 +153,6 @@ public class CharacterCreationScene extends JFrame {
         String ageStr = ageField.getText().trim();
         String gender = genderField.getText().trim().toUpperCase();
 
-        // Validate name
         if (name.isEmpty()) {
             errorLabel.setText("Please enter your name.");
             return;
@@ -172,7 +162,6 @@ public class CharacterCreationScene extends JFrame {
             return;
         }
 
-        // Validate age
         int age;
         try {
             age = Integer.parseInt(ageStr);
@@ -185,7 +174,6 @@ public class CharacterCreationScene extends JFrame {
             return;
         }
 
-        // Validate gender
         if (!gender.equals("M") && !gender.equals("F")) {
             errorLabel.setText("Please enter M or F for gender.");
             return;

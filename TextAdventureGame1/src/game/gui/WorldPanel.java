@@ -12,6 +12,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Random;
 import java.util.Set;
 
 public class WorldPanel extends JPanel implements Runnable {
@@ -24,13 +25,15 @@ public class WorldPanel extends JPanel implements Runnable {
     private int lunasCount;
     private int potionCount;
 
-    // ✅ Player profile
     private String playerName   = "";
     private int    playerAge    = 0;
     private String playerGender = "";
     private int    antingAntingCount = 0;
 
-    // ✅ Speedrun timer
+    // ✅ Coin system
+    private int playerCoins = 500;
+    private static final Random coinRand = new Random();
+
     private long gameStartTime = System.currentTimeMillis();
     private boolean timerRunning = true;
 
@@ -59,13 +62,16 @@ public class WorldPanel extends JPanel implements Runnable {
     private boolean inBattle = false;
     private long encounterCooldownUntil;
 
-    private boolean showBag = false;
+    private boolean showBag  = false;
+    private boolean showShop = false;
+    private boolean healTriggered = false;
+
     private int selectedIndex         = -1;
     private int selectedCreatureIndex = -1;
-    private JPanel bagOverlay = null;
+    private JPanel bagOverlay  = null;
+    private JPanel shopOverlay = null;
     private ArrayList<Rectangle> bagRowRects = new ArrayList<>();
 
-    // ✅ Welcome message state
     private boolean showWelcome  = false;
     private JPanel  welcomePanel = null;
 
@@ -77,7 +83,7 @@ public class WorldPanel extends JPanel implements Runnable {
     private String pendingItemUse = "";
     private Fighter pendingTarget = null;
 
-    // ✅ First time constructor - with profile, shows welcome
+    // ✅ First time constructor
     public WorldPanel(GameScene gameScene,
                       String playerName, int playerAge, String playerGender) {
         this(gameScene, 4205, 5125,
@@ -85,15 +91,12 @@ public class WorldPanel extends JPanel implements Runnable {
                 game.battle.Create.createPlayerStarter(),
                 3, 3, 3,
                 playerName, playerAge, playerGender,
+                500,
                 System.currentTimeMillis(),
                 0L);
-        SwingUtilities.invokeLater(() -> new Timer(400, e -> {
-            ((Timer) e.getSource()).stop();
-            showWelcomeMessage();
-        }).start());
     }
 
-    // ✅ Full constructor - restores all state after battle
+    // ✅ Full constructor
     public WorldPanel(GameScene gameScene,
                       int startX, int startY,
                       ArrayList<Fighter> team,
@@ -104,6 +107,7 @@ public class WorldPanel extends JPanel implements Runnable {
                       String playerName,
                       int playerAge,
                       String playerGender,
+                      int playerCoins,
                       long gameStartTime,
                       long cooldownUntil) {
         this.gameScene              = gameScene;
@@ -117,6 +121,7 @@ public class WorldPanel extends JPanel implements Runnable {
         this.playerName             = playerName;
         this.playerAge              = playerAge;
         this.playerGender           = playerGender;
+        this.playerCoins            = playerCoins;
         this.gameStartTime          = gameStartTime;
         this.timerRunning           = true;
         this.encounterCooldownUntil = cooldownUntil;
@@ -138,76 +143,97 @@ public class WorldPanel extends JPanel implements Runnable {
         initSolidTiles();
     }
 
+    public int getPlayerCoins() { return playerCoins; }
+
+    // ✅ Called by GameScene to give coins after battle win
+    public void addCoins(int amount) {
+        playerCoins += amount;
+    }
+
     // ══════════════════════════════════════════════════════════════
-    // WELCOME MESSAGE
+    // CREATURE POPUP
     // ══════════════════════════════════════════════════════════════
 
-    private void showWelcomeMessage() {
-        if (welcomePanel != null) this.remove(welcomePanel);
+    public void showCreaturePopup(Runnable onLetsGo) {
+        SwingUtilities.invokeLater(() -> {
+            if (welcomePanel != null) this.remove(welcomePanel);
 
-        int pw = 700, ph = 190;
-        int px = (1280 - pw) / 2;
-        int py = (720  - ph) / 2;
+            int pw = 700, ph = 210;
+            int px = (1280 - pw) / 2;
+            int py = (720  - ph) / 2;
 
-        welcomePanel = new JPanel(null) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                        RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(0, 0, 0, 200));
-                g2.fillRect(0, 0, getWidth(), getHeight());
-            }
-        };
-        welcomePanel.setOpaque(false);
-        welcomePanel.setBounds(0, 0, 1280, 720);
+            welcomePanel = new JPanel(null) {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    super.paintComponent(g);
+                    Graphics2D g2 = (Graphics2D) g;
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                            RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(new Color(0, 0, 0, 180));
+                    g2.fillRect(0, 0, getWidth(), getHeight());
+                }
+            };
+            welcomePanel.setOpaque(false);
+            welcomePanel.setBounds(0, 0, 1280, 720);
 
-        JPanel box = new JPanel(null) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                        RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(18, 12, 5));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
-                g2.setColor(new Color(170, 120, 50));
-                g2.setStroke(new BasicStroke(2.5f));
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
-            }
-        };
-        box.setOpaque(false);
-        box.setBounds(px, py, pw, ph);
+            JPanel box = new JPanel(null) {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    super.paintComponent(g);
+                    Graphics2D g2 = (Graphics2D) g;
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                            RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(new Color(18, 12, 5));
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
+                    g2.setColor(new Color(170, 120, 50));
+                    g2.setStroke(new BasicStroke(2.5f));
+                    g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
+                }
+            };
+            box.setOpaque(false);
+            box.setBounds(px, py, pw, ph);
 
-        JLabel l1 = welcomeLabel("You have been left with a creature", new Color(255, 215, 90), 18, true);
-        JLabel l2 = welcomeLabel("of your Grandpa — a Santelmo!", Color.WHITE, 16, false);
-        JLabel l3 = welcomeLabel("\"Take care of it. Your adventure begins now, "
-                + playerName + ".\"", new Color(180, 180, 180), 13, false);
-        JLabel l4 = welcomeLabel("Good luck on your speedrun!", new Color(100, 200, 255), 12, false);
+            JLabel l1 = welcomeLabel("You have been left with a creature",
+                    new Color(255, 215, 90), 18, true);
+            JLabel l2 = welcomeLabel("of your Grandpa — a Santelmo!",
+                    Color.WHITE, 15, false);
+            JLabel l3 = welcomeLabel("Create your character to begin the adventure!",
+                    new Color(180, 180, 180), 12, false);
+            JLabel l4 = welcomeLabel("You start with 500 coins. Good luck and have fun!",
+                    new Color(100, 200, 255), 12, false);
 
-        l1.setBounds(20, 16, pw - 40, 28);
-        l2.setBounds(20, 50, pw - 40, 24);
-        l3.setBounds(20, 80, pw - 40, 22);
-        l4.setBounds(20, 106, pw - 40, 20);
-        box.add(l1); box.add(l2); box.add(l3); box.add(l4);
+            l1.setBounds(20, 16, pw - 40, 26);
+            l2.setBounds(20, 50, pw - 40, 22);
+            l3.setBounds(20, 80, pw - 40, 20);
+            l4.setBounds(20, 106, pw - 40, 20);
+            box.add(l1); box.add(l2); box.add(l3); box.add(l4);
 
-        JButton okBtn = new JButton("LET'S GO!");
-        okBtn.setBackground(new Color(40, 130, 55));
-        okBtn.setForeground(Color.WHITE);
-        okBtn.setFont(new Font("Monospaced", Font.BOLD, 14));
-        okBtn.setFocusPainted(false);
-        okBtn.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
-        okBtn.setBounds(pw / 2 - 80, ph - 52, 160, 36);
-        okBtn.addActionListener(e -> dismissWelcome());
-        box.add(okBtn);
+            JButton letsGoBtn = new JButton("LET'S GO!");
+            letsGoBtn.setBackground(new Color(40, 130, 55));
+            letsGoBtn.setForeground(Color.WHITE);
+            letsGoBtn.setFont(new Font("Monospaced", Font.BOLD, 14));
+            letsGoBtn.setFocusPainted(false);
+            letsGoBtn.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
+            letsGoBtn.setBounds(pw / 2 - 100, ph - 62, 200, 44);
+            letsGoBtn.addActionListener(e -> {
+                if (welcomePanel != null) {
+                    WorldPanel.this.remove(welcomePanel);
+                    welcomePanel = null;
+                }
+                showWelcome = false;
+                WorldPanel.this.revalidate();
+                WorldPanel.this.repaint();
+                if (onLetsGo != null) onLetsGo.run();
+            });
+            box.add(letsGoBtn);
 
-        welcomePanel.add(box);
-        this.add(welcomePanel);
-        this.setComponentZOrder(welcomePanel, 0);
-        showWelcome = true;
-        this.revalidate();
-        this.repaint();
+            welcomePanel.add(box);
+            this.add(welcomePanel);
+            this.setComponentZOrder(welcomePanel, 0);
+            showWelcome = true;
+            this.revalidate();
+            this.repaint();
+        });
     }
 
     private JLabel welcomeLabel(String text, Color color, int size, boolean bold) {
@@ -217,26 +243,21 @@ public class WorldPanel extends JPanel implements Runnable {
         return lbl;
     }
 
-    private void dismissWelcome() {
-        if (welcomePanel != null) {
-            this.remove(welcomePanel);
-            welcomePanel = null;
-        }
-        showWelcome = false;
-        this.revalidate();
-        this.repaint();
-        requestFocusInWindow();
+    public void updateProfile(String name, int age, String gender, long startTime) {
+        this.playerName    = name;
+        this.playerAge     = age;
+        this.playerGender  = gender;
+        this.gameStartTime = startTime;
     }
 
     // ══════════════════════════════════════════════════════════════
-    // HUD — top-left profile card with timer
+    // HUD
     // ══════════════════════════════════════════════════════════════
 
     private void drawHUD(Graphics2D g2) {
         int x = 10, y = 10;
-        int w = 200, h = 126;
+        int w = 200, h = 146; // ✅ taller to fit coins
 
-        // Card background
         g2.setColor(new Color(0, 0, 0, 180));
         g2.fillRoundRect(x, y, w, h, 12, 12);
         g2.setColor(new Color(170, 120, 50));
@@ -250,13 +271,13 @@ public class WorldPanel extends JPanel implements Runnable {
         // Name
         g2.setColor(new Color(255, 215, 90));
         g2.setFont(new Font("Monospaced", Font.BOLD, 13));
-        g2.drawString(playerName.isEmpty() ? "Player" : playerName, tx, ty);
+        g2.drawString(playerName.isEmpty() ? "..." : playerName, tx, ty);
         ty += lineH;
 
         // Age & Gender
         g2.setColor(new Color(200, 200, 200));
         g2.setFont(new Font("Monospaced", Font.PLAIN, 11));
-        g2.drawString("Age: " + playerAge + "  |  " + playerGender, tx, ty);
+        g2.drawString(playerAge == 0 ? "..." : "Age: " + playerAge + "  |  " + playerGender, tx, ty);
         ty += lineH;
 
         // Divider
@@ -265,13 +286,12 @@ public class WorldPanel extends JPanel implements Runnable {
         g2.drawLine(tx, ty - 4, x + w - 10, ty - 4);
         ty += 4;
 
-        // Anting-Anting label
+        // Anting-Anting
         g2.setColor(new Color(200, 160, 60));
         g2.setFont(new Font("Monospaced", Font.BOLD, 11));
         g2.drawString("Anting-Anting:", tx, ty + 4);
         ty += lineH;
 
-        // Dots
         for (int i = 0; i < 4; i++) {
             boolean has = (i < antingAntingCount);
             g2.setColor(has ? new Color(255, 200, 50) : new Color(60, 50, 30));
@@ -285,30 +305,324 @@ public class WorldPanel extends JPanel implements Runnable {
         g2.drawString(antingAntingCount + "/4", tx + 96, ty);
         ty += lineH;
 
-        // Divider before timer
+        // Divider
         g2.setColor(new Color(100, 70, 15));
         g2.setStroke(new BasicStroke(1));
         g2.drawLine(tx, ty - 6, x + w - 10, ty - 6);
         ty += 2;
 
-        // ✅ Timer
-        long elapsed     = System.currentTimeMillis() - gameStartTime;
-        long totalSecs   = elapsed / 1000;
-        long hours       = totalSecs / 3600;
-        long minutes     = (totalSecs % 3600) / 60;
-        long seconds     = totalSecs % 60;
+        // ✅ Coins
+        g2.setColor(new Color(20, 20, 10, 200));
+        g2.fillRoundRect(tx - 2, ty - 2, w - 18, 18, 6, 6);
+        g2.setColor(new Color(255, 215, 90));
+        g2.setFont(new Font("Monospaced", Font.BOLD, 12));
+        g2.drawString("COINS " + playerCoins, tx + 2, ty + 12);
+        ty += lineH + 2;
 
+        // Divider
+        g2.setColor(new Color(100, 70, 15));
+        g2.setStroke(new BasicStroke(1));
+        g2.drawLine(tx, ty - 4, x + w - 10, ty - 4);
+        ty += 2;
+
+        // ✅ Timer
+        long elapsed   = System.currentTimeMillis() - gameStartTime;
+        long totalSecs = elapsed / 1000;
+        long hours     = totalSecs / 3600;
+        long minutes   = (totalSecs % 3600) / 60;
+        long seconds   = totalSecs % 60;
         String timeStr = hours > 0
                 ? String.format("%02d:%02d:%02d", hours, minutes, seconds)
                 : String.format("%02d:%02d", minutes, seconds);
 
-        // Clock icon background pill
         g2.setColor(new Color(20, 20, 40, 200));
         g2.fillRoundRect(tx - 2, ty - 2, w - 18, 18, 6, 6);
-
         g2.setColor(new Color(100, 200, 255));
         g2.setFont(new Font("Monospaced", Font.BOLD, 12));
         g2.drawString("TIME  " + timeStr, tx + 2, ty + 12);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // SHOP
+    // ══════════════════════════════════════════════════════════════
+
+    private void openShop() {
+        if (showShop) return;
+        showShop = true;
+        buildShopOverlay();
+    }
+
+    private void closeShop() {
+        showShop = false;
+        if (shopOverlay != null) {
+            this.remove(shopOverlay);
+            shopOverlay = null;
+            this.revalidate();
+            this.repaint();
+        }
+        requestFocusInWindow();
+    }
+
+    private void buildShopOverlay() {
+        if (shopOverlay != null) {
+            this.remove(shopOverlay);
+            shopOverlay = null;
+        }
+
+        int screenW = 1280, screenH = 720;
+        int winW = 720, winH = 480;
+        int winX = (screenW - winW) / 2;
+        int winY = (screenH - winH) / 2;
+
+        final int fwinX = winX, fwinW = winW, fwinH = winH, fwinY = winY;
+
+        shopOverlay = new JPanel(null) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                        RenderingHints.VALUE_ANTIALIAS_ON);
+                // Dim
+                g2.setColor(new Color(0, 0, 0, 190));
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                // Window
+                g2.setColor(new Color(18, 12, 5));
+                g2.fillRoundRect(fwinX, fwinY, fwinW, fwinH, 18, 18);
+                g2.setColor(new Color(170, 120, 50));
+                g2.setStroke(new BasicStroke(3));
+                g2.drawRoundRect(fwinX, fwinY, fwinW, fwinH, 18, 18);
+                // Title bar
+                g2.setColor(new Color(70, 44, 8));
+                g2.fillRoundRect(fwinX, fwinY, fwinW, 48, 18, 18);
+                g2.fillRect(fwinX, fwinY + 28, fwinW, 20);
+                // Title
+                g2.setColor(new Color(255, 215, 90));
+                g2.setFont(new Font("Monospaced", Font.BOLD, 20));
+                FontMetrics fm = g2.getFontMetrics();
+                g2.drawString("SHOP",
+                        fwinX + (fwinW - fm.stringWidth("SHOP")) / 2, fwinY + 33);
+                // Coins display
+                g2.setColor(new Color(255, 215, 90));
+                g2.setFont(new Font("Monospaced", Font.BOLD, 13));
+                g2.drawString("Coins: " + playerCoins, fwinX + fwinW - 150, fwinY + 33);
+                // Divider
+                g2.setColor(new Color(170, 120, 50));
+                g2.setStroke(new BasicStroke(1.5f));
+                g2.drawLine(fwinX + 16, fwinY + 50, fwinX + fwinW - 16, fwinY + 50);
+                // Close hint
+                g2.setColor(new Color(120, 120, 120));
+                g2.setFont(new Font("Monospaced", Font.PLAIN, 11));
+                FontMetrics hfm = g2.getFontMetrics();
+                String hint = "Press [E] to close";
+                g2.drawString(hint,
+                        fwinX + (fwinW - hfm.stringWidth(hint)) / 2,
+                        fwinY + fwinH - 12);
+
+            }
+        };
+        shopOverlay.setOpaque(false);
+        shopOverlay.setBounds(0, 0, screenW, screenH);
+
+        // ── Shop items ────────────────────────────────────────────
+        int itemY = winY + 62;
+        int itemX = winX + 24;
+        int itemW = winW - 48;
+        int rowH  = 60;
+        int gap   = 8;
+
+        Object[][] items = {
+                {"Scroll",  "Capture wild creatures in battle.",    30, "scroll"},
+                {"Lunas",   "Restore 5 PP to one creature move.",   25, "lunas"},
+                {"Potion",  "Restore 30 HP to one creature.",       25, "potion"},
+        };
+
+        for (Object[] item : items) {
+            String name = (String) item[0];
+            String desc = (String) item[1];
+            int    cost = (int)    item[2];
+            String key  = (String) item[3];
+            JPanel row = buildShopRow(itemX, itemY, itemW, rowH, name, desc, cost, key);
+            shopOverlay.add(row);
+            itemY += rowH + gap;
+        }
+
+        // ── Leave button ──────────────────────────────────────────
+        JButton leaveBtn = new JButton("LEAVE SHOP");
+        leaveBtn.setBackground(new Color(100, 50, 10));
+        leaveBtn.setForeground(Color.WHITE);
+        leaveBtn.setFont(new Font("Monospaced", Font.BOLD, 14));
+        leaveBtn.setFocusPainted(false);
+        leaveBtn.setBorder(BorderFactory.createLineBorder(new Color(170, 120, 50), 2));
+        leaveBtn.setBounds(winX + winW / 2 - 100, winY + winH - 58, 200, 36);
+        leaveBtn.addActionListener(e -> closeShop());
+        shopOverlay.add(leaveBtn);
+
+        this.add(shopOverlay);
+        this.setComponentZOrder(shopOverlay, 0);
+        this.revalidate();
+        this.repaint();
+    }
+
+    private JPanel buildShopRow(int x, int y, int w, int h,
+                                String name, String desc, int cost, String key) {
+        JPanel row = new JPanel(null) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                        RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(30, 20, 6));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(new Color(100, 70, 20));
+                g2.setStroke(new BasicStroke(1));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 8, 8);
+            }
+        };
+        row.setOpaque(false);
+        row.setBounds(x, y, w, h);
+
+        // Name
+        JLabel nameLbl = new JLabel(name);
+        nameLbl.setForeground(Color.WHITE);
+        nameLbl.setFont(new Font("Monospaced", Font.BOLD, 14));
+        nameLbl.setBounds(12, 6, 220, 20);
+        row.add(nameLbl);
+
+        // Description
+        JLabel descLbl = new JLabel(desc);
+        descLbl.setForeground(new Color(160, 160, 160));
+        descLbl.setFont(new Font("Monospaced", Font.PLAIN, 11));
+        descLbl.setBounds(12, 28, w - 230, 16);
+        row.add(descLbl);
+
+        // Cost
+        JLabel costLbl = new JLabel(cost + " Coins");
+        costLbl.setForeground(new Color(255, 215, 90));
+        costLbl.setFont(new Font("Monospaced", Font.BOLD, 12));
+        costLbl.setBounds(w - 230, 6, 100, 20);
+        row.add(costLbl);
+
+        // Current stock
+        int stock = getCurrentItemCount(key);
+        JLabel stockLbl = new JLabel("Have: " + stock);
+        stockLbl.setForeground(new Color(140, 200, 140));
+        stockLbl.setFont(new Font("Monospaced", Font.PLAIN, 11));
+        stockLbl.setBounds(w - 230, 28, 100, 16);
+        row.add(stockLbl);
+
+        // Buy x1
+        JButton buy1 = shopBtn("Buy x1", new Color(40, 110, 40));
+        buy1.setBounds(w - 120, 8, 104, 20);
+        buy1.addActionListener(e -> {
+            buyItem(key, cost, 1);
+            buildShopOverlay();
+        });
+        row.add(buy1);
+
+        // Buy x5
+        JButton buy5 = shopBtn("Buy x5", new Color(30, 80, 30));
+        buy5.setBounds(w - 120, 32, 104, 20);
+        buy5.addActionListener(e -> {
+            buyItem(key, cost, 5);
+            buildShopOverlay();
+        });
+        row.add(buy5);
+
+        return row;
+    }
+
+    private JButton shopBtn(String text, Color bg) {
+        JButton btn = new JButton(text);
+        btn.setBackground(bg);
+        btn.setForeground(Color.WHITE);
+        btn.setFont(new Font("Monospaced", Font.BOLD, 11));
+        btn.setFocusPainted(false);
+        btn.setBorder(BorderFactory.createLineBorder(new Color(60, 160, 60), 1));
+        return btn;
+    }
+
+    private int getCurrentItemCount(String key) {
+        switch (key) {
+            case "scroll": return scrollCount;
+            case "lunas":  return lunasCount;
+            case "potion": return potionCount;
+            default: return 0;
+        }
+    }
+
+    private void buyItem(String key, int cost, int qty) {
+        int totalCost = cost * qty;
+        if (playerCoins < totalCost) {
+            showFloatingMessage("Not enough Coins! Need " + totalCost + " coins.", new Color(220, 60, 60));
+            return;
+        }
+        playerCoins -= totalCost;
+        switch (key) {
+            case "scroll": scrollCount += qty; break;
+            case "lunas":  lunasCount  += qty; break;
+            case "potion": potionCount += qty; break;
+        }
+        showFloatingMessage("Bought " + qty + "x " + key + " for " + totalCost + " coins!", new Color(100, 255, 150));
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // HEAL TILE
+    // ══════════════════════════════════════════════════════════════
+
+    private void healAllCreatures() {
+        playerFighter.stats.get(0).value = playerFighter.stats.get(0).base;
+        playerFighter.fainted = false;
+        for (game.battle.Move m : playerFighter.moveset) m.pp = m.maxPp;
+        for (Fighter f : capturedTeam) {
+            f.stats.get(0).value = f.stats.get(0).base;
+            f.fainted = false;
+            for (game.battle.Move m : f.moveset) m.pp = m.maxPp;
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // FLOATING MESSAGE
+    // ══════════════════════════════════════════════════════════════
+
+    private void showFloatingMessage(String message, Color color) {
+        JPanel overlay = new JPanel(null) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                g.setColor(new Color(0, 0, 0, 150));
+                g.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+        overlay.setOpaque(false);
+        overlay.setBounds(0, 0, 1280, 720);
+
+        int rw = 540, rh = 80;
+        int rx = (1280 - rw) / 2, ry = (720 - rh) / 2;
+
+        JPanel box = new JPanel(new BorderLayout());
+        box.setBackground(new Color(12, 25, 12));
+        box.setBorder(BorderFactory.createLineBorder(color, 2));
+        box.setBounds(rx, ry, rw, rh);
+
+        JLabel lbl = new JLabel(message, SwingConstants.CENTER);
+        lbl.setForeground(color);
+        lbl.setFont(new Font("Monospaced", Font.BOLD, 14));
+        box.add(lbl, BorderLayout.CENTER);
+        overlay.add(box);
+
+        this.add(overlay);
+        this.setComponentZOrder(overlay, 0);
+        this.revalidate();
+        this.repaint();
+
+        new Timer(1800, e -> {
+            ((Timer) e.getSource()).stop();
+            this.remove(overlay);
+            this.revalidate();
+            this.repaint();
+        }).start();
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -370,6 +684,9 @@ public class WorldPanel extends JPanel implements Runnable {
                 FontMetrics fm = g2.getFontMetrics();
                 g2.drawString("BAG",
                         winX + (winW - fm.stringWidth("BAG")) / 2, winY + 34);
+                // Coins in bag header
+                g2.setFont(new Font("Monospaced", Font.BOLD, 12));
+                g2.drawString("Coins: " + playerCoins, winX + winW - 140, winY + 34);
                 g2.setColor(new Color(170, 120, 50));
                 g2.setStroke(new BasicStroke(1.5f));
                 g2.drawLine(winX + 16, winY + 50, winX + winW - 16, winY + 50);
@@ -805,11 +1122,7 @@ public class WorldPanel extends JPanel implements Runnable {
         backBtn.setFocusPainted(false);
         backBtn.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
         backBtn.setBounds(winX + winW - 140, winY + winH - 56, 120, 36);
-        backBtn.addActionListener(e -> {
-            pendingItemUse = "";
-            selectedIndex  = -1;
-            buildBagOverlay("main");
-        });
+        backBtn.addActionListener(e -> { pendingItemUse = ""; selectedIndex = -1; buildBagOverlay("main"); });
         overlay.add(backBtn);
     }
 
@@ -963,6 +1276,7 @@ public class WorldPanel extends JPanel implements Runnable {
         }
         return false;
     }
+    private int lastDebugTileId = -1;
 
     private void checkEncounter() {
         if (inBattle) return;
@@ -977,7 +1291,28 @@ public class WorldPanel extends JPanel implements Runnable {
         if (tileCol < 0 || tileRow < 0 ||
                 tileCol >= mapWidth || tileRow >= mapHeight) return;
 
-        if (allLayerData[2][tileRow][tileCol] == 758) {
+        // ✅ Collect top tile ID, only print when it changes
+        int tileId = 0;
+        for (int layer = 0; layer < allLayerData.length; layer++) {
+            int t = allLayerData[layer][tileRow][tileCol];
+            if (t > 0) tileId = t;
+        }
+
+        if (tileId != lastDebugTileId) {
+            lastDebugTileId = tileId;
+            StringBuilder debugInfo = new StringBuilder();
+            debugInfo.append("[TILE DEBUG] col=").append(tileCol)
+                    .append(" row=").append(tileRow).append(" | Layers: ");
+            for (int layer = 0; layer < allLayerData.length; layer++) {
+                int t = allLayerData[layer][tileRow][tileCol];
+                debugInfo.append("L").append(layer).append("=").append(t).append(" ");
+            }
+            debugInfo.append("| TOP_TILE=").append(tileId);
+            System.out.println(debugInfo);
+        }
+
+        // ✅ Grass wild encounter
+        if (tileId == 758) {
             if (Math.random() > 0.05) return;
             inBattle = true;
             int savedX = playerX, savedY = playerY;
@@ -987,7 +1322,30 @@ public class WorldPanel extends JPanel implements Runnable {
                             capturedTeam, scrollCount,
                             lunasCount, potionCount,
                             savedX, savedY));
+            return;
+
         }
+
+        // ✅ Shop tile
+        if (tileId == 897 && !showShop && !showBag) {
+            SwingUtilities.invokeLater(this::openShop);
+            return;
+        }
+
+        // ✅ Heal tile - small pond (568)
+        if (tileId == 568) {
+            if (!healTriggered) {
+                healTriggered = true;
+                healAllCreatures();
+                SwingUtilities.invokeLater(() ->
+                        showFloatingMessage(
+                                "The small pond healed your creatures!",
+                                new Color(80, 200, 255)));
+            }
+        } else {
+            healTriggered = false;
+        }
+        
     }
 
     public void start() {
@@ -1000,10 +1358,17 @@ public class WorldPanel extends JPanel implements Runnable {
     private void update() {
         if (keyH.bagJustPressed) {
             if (showBag) closeBag();
-            else if (!showWelcome) openBag();
+            else if (!showWelcome && !showShop) openBag();
             keyH.bagJustPressed = false;
         }
-        if (showWelcome || showBag) return;
+
+        // ✅ E key closes shop
+        if (keyH.shopJustPressed) {
+            if (showShop) closeShop();
+            keyH.shopJustPressed = false;
+        }
+
+        if (showWelcome || showBag || showShop) return;
 
         boolean moving = false;
         int newX = playerX, newY = playerY;
@@ -1099,11 +1464,8 @@ public class WorldPanel extends JPanel implements Runnable {
             g2.drawString("Map failed to load!", 50, 50);
         }
 
-        // ✅ Always draw HUD on top
         drawHUD(g2);
     }
-
-    // ── Map loading ───────────────────────────────────────────────
 
     private void loadMap(String path) {
         try {

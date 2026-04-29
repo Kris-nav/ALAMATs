@@ -1,6 +1,5 @@
 package game.core;
 
-import game.gui.CharacterCreationScene;
 import game.gui.MainMenu;
 import game.gui.GameScene;
 import java.util.*;
@@ -12,31 +11,22 @@ public class TextAdventureGame {
     public static final long TEXT_DELAY = 50;
 
     public static void main(String[] args) {
-        // 1. Character Creation
-        CharacterCreationScene creation = new CharacterCreationScene();
-        creation.waitForConfirmation();
-        String name   = creation.getPlayerName();
-        int    age    = creation.getPlayerAge();
-        String gender = creation.getPlayerGender();
-        creation.dispose();
-
-        // 2. Show Menu
+        // 1. Show Main Menu
         MainMenu menu = new MainMenu();
         menu.waitForPlay();
         menu.dispose();
 
-        // 3. Load Data
+        // 2. Load Data
         GameData.initializeData();
 
-        // 4. Setup GUI with profile
+        // 3. Setup GUI - no profile yet, cinematic plays first
         ProgressionManager pm = new ProgressionManager();
         GameScene gameGui = new GameScene(pm);
         pm.setGameScene(gameGui);
-        gameGui.setPlayerProfile(name, age, gender);
         gameGui.setVisible(true);
         pm.startStory();
 
-        // 5. Console loop
+        // 4. Console loop
         while (GameStatus.isPlaying) {
             GameFlowManager.enterName();
             GameFlowManager.startNewGame();

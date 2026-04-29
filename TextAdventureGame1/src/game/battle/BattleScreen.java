@@ -1,8 +1,11 @@
 package game.battle;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.ArrayList;
 
 public class BattleScreen extends JPanel implements ActionListener {
@@ -60,7 +63,9 @@ public class BattleScreen extends JPanel implements ActionListener {
     private String pendingItemUse = "";
     private Fighter pendingTarget = null;
 
-    // ✅ Constructor now receives lunasCount and potionCount
+    // ✅ Cache battle background
+    private BufferedImage battleBg = null;
+
     public BattleScreen(Fighter defaultMon,
                         Fighter oppMon,
                         ArrayList<Fighter> capturedTeam,
@@ -79,23 +84,36 @@ public class BattleScreen extends JPanel implements ActionListener {
         this.onBattleEnd  = onBattleEnd;
         this.onRun        = onRun;
 
+        // ✅ Load battle background once
+        try {
+            battleBg = ImageIO.read(new File("resources/Texture/battle.jpg"));
+        } catch (Exception e) {
+            System.err.println("Could not load battle.jpg: " + e.getMessage());
+        }
+
         setLayout(new BorderLayout());
         setBackground(Color.BLACK);
 
+        // ✅ Background panel with battle.jpg
         JPanel bgPanel = new JPanel(new BorderLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g;
-                GradientPaint gp = new GradientPaint(
-                        0, 0, new Color(20, 40, 20),
-                        0, getHeight(), new Color(5, 15, 5));
-                g2.setPaint(gp);
-                g2.fillRect(0, 0, getWidth(), getHeight());
+                if (battleBg != null) {
+                    g2.drawImage(battleBg, 0, 0, getWidth(), getHeight(), null);
+                } else {
+                    GradientPaint gp = new GradientPaint(
+                            0, 0, new Color(20, 40, 20),
+                            0, getHeight(), new Color(5, 15, 5));
+                    g2.setPaint(gp);
+                    g2.fillRect(0, 0, getWidth(), getHeight());
+                }
             }
         };
         bgPanel.setOpaque(false);
 
+        // ── Sprites ───────────────────────────────────────────────
         pokePanel = new JPanel(new GridLayout(1, 2));
         pokePanel.setBorder(BorderFactory.createEmptyBorder(30, 30, 10, 30));
         pokePanel.setOpaque(false);
@@ -104,6 +122,7 @@ public class BattleScreen extends JPanel implements ActionListener {
         pokePanel.add(userPokemon);
         pokePanel.add(oppPokemon);
 
+        // ── Names ─────────────────────────────────────────────────
         JPanel namePanel = new JPanel(new GridLayout(1, 2));
         namePanel.setOpaque(false);
         namePanel.setBorder(BorderFactory.createEmptyBorder(2, 40, 2, 40));
@@ -114,6 +133,7 @@ public class BattleScreen extends JPanel implements ActionListener {
         namePanel.add(userNameLbl);
         namePanel.add(oppNameLbl);
 
+        // ── HP Labels ─────────────────────────────────────────────
         JPanel hpLabelPanel = new JPanel(new GridLayout(1, 2));
         hpLabelPanel.setOpaque(false);
         hpLabelPanel.setBorder(BorderFactory.createEmptyBorder(0, 40, 0, 40));
@@ -126,6 +146,7 @@ public class BattleScreen extends JPanel implements ActionListener {
         hpLabelPanel.add(userHpLabel);
         hpLabelPanel.add(oppHpLabel);
 
+        // ── Health bars ───────────────────────────────────────────
         healthPanel = new JPanel(new GridLayout(1, 2));
         healthPanel.setBorder(BorderFactory.createEmptyBorder(0, 30, 5, 30));
         healthPanel.setOpaque(false);
@@ -146,6 +167,7 @@ public class BattleScreen extends JPanel implements ActionListener {
         topArea.add(hpAndBars, BorderLayout.SOUTH);
         bgPanel.add(topArea, BorderLayout.CENTER);
 
+        // ── Bottom CardLayout ─────────────────────────────────────
         botPanel = new JPanel(new CardLayout());
         botPanel.setBackground(new Color(30, 30, 30));
         botPanel.setBorder(BorderFactory.createLineBorder(new Color(80, 80, 80), 3));
@@ -213,6 +235,42 @@ public class BattleScreen extends JPanel implements ActionListener {
         add(bgPanel, BorderLayout.CENTER);
 
         showCard("Menu");
+    }
+
+    // ✅ Load sprite from resources/Texture/ by filename
+    private JLabel loadSprite(String path) {
+        // Extract just the filename from the path e.g. "/images/Santelmo.png" → "Santelmo.png"
+        String fileName = new File(path).getName();
+
+        // ✅ Try file system first
+        try {
+            File imgFile = new File("resources/Texture/" + fileName);
+            if (imgFile.exists()) {
+                BufferedImage img = ImageIO.read(imgFile);
+                Image scaled = img.getScaledInstance(160, 160, Image.SCALE_SMOOTH);
+                JLabel lbl = new JLabel(new ImageIcon(scaled));
+                lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                return lbl;
+            }
+        } catch (Exception ignored) {}
+
+        // ✅ Try classpath
+        try {
+            java.net.URL url = getClass().getResource(path);
+            if (url != null) {
+                ImageIcon icon = new ImageIcon(url);
+                Image scaled   = icon.getImage().getScaledInstance(160, 160, Image.SCALE_SMOOTH);
+                JLabel lbl = new JLabel(new ImageIcon(scaled));
+                lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                return lbl;
+            }
+        } catch (Exception ignored) {}
+
+        // ✅ Fallback
+        JLabel lbl = new JLabel("?", SwingConstants.CENTER);
+        lbl.setForeground(Color.WHITE);
+        lbl.setFont(new Font("Arial", Font.BOLD, 40));
+        return lbl;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -322,7 +380,6 @@ public class BattleScreen extends JPanel implements ActionListener {
 
         panel.add(top, BorderLayout.NORTH);
 
-        // ✅ USE button pinned to bottom
         boolean hasItem = counts[bagSelectedIndex] > 0;
         JButton useBtn = new JButton(hasItem ? "USE" : "NONE LEFT");
         useBtn.setBackground(hasItem ? colors[bagSelectedIndex] : new Color(80, 80, 80));
@@ -334,20 +391,9 @@ public class BattleScreen extends JPanel implements ActionListener {
 
         final int sel = bagSelectedIndex;
         useBtn.addActionListener(e -> {
-            if (sel == 0) {
-                bagSelectedIndex = -1;
-                useScroll();
-            } else if (sel == 1) {
-                bagSelectedIndex = -1;
-                pendingItemUse = "lunas";
-                rebuildCreatureSelectPanel();
-                showCard("CreatureSelect");
-            } else if (sel == 2) {
-                bagSelectedIndex = -1;
-                pendingItemUse = "potion";
-                rebuildCreatureSelectPanel();
-                showCard("CreatureSelect");
-            }
+            if (sel == 0) { bagSelectedIndex = -1; useScroll(); }
+            else if (sel == 1) { bagSelectedIndex = -1; pendingItemUse = "lunas"; rebuildCreatureSelectPanel(); showCard("CreatureSelect"); }
+            else if (sel == 2) { bagSelectedIndex = -1; pendingItemUse = "potion"; rebuildCreatureSelectPanel(); showCard("CreatureSelect"); }
         });
 
         panel.add(useBtn, BorderLayout.SOUTH);
@@ -398,11 +444,7 @@ public class BattleScreen extends JPanel implements ActionListener {
             btn.setEnabled(canUse);
             if (canUse) {
                 final Fighter target = f;
-                btn.addActionListener(e -> {
-                    pendingTarget = target;
-                    rebuildConfirmPanel();
-                    showCard("Confirm");
-                });
+                btn.addActionListener(e -> { pendingTarget = target; rebuildConfirmPanel(); showCard("Confirm"); });
             }
             grid.add(btn);
         }
@@ -414,12 +456,7 @@ public class BattleScreen extends JPanel implements ActionListener {
         creatureSelectPanel.add(grid, BorderLayout.CENTER);
 
         JButton backBtn = menuBtn("BACK", new Color(0x555555));
-        backBtn.addActionListener(e -> {
-            pendingItemUse   = "";
-            bagSelectedIndex = -1;
-            rebuildBagPanel();
-            showCard("Bag");
-        });
+        backBtn.addActionListener(e -> { pendingItemUse = ""; bagSelectedIndex = -1; rebuildBagPanel(); showCard("Bag"); });
         JPanel backRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         backRow.setOpaque(false);
         backRow.add(backBtn);
@@ -438,8 +475,7 @@ public class BattleScreen extends JPanel implements ActionListener {
         confirmPanel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
 
         String itemName  = pendingItemUse.equals("lunas") ? "Lunas" : "Potion";
-        Color  itemColor = pendingItemUse.equals("lunas")
-                ? new Color(60, 180, 100) : new Color(60, 140, 220);
+        Color  itemColor = pendingItemUse.equals("lunas") ? new Color(60, 180, 100) : new Color(60, 140, 220);
         String effect    = pendingItemUse.equals("lunas") ? "restore PP" : "restore 30 HP";
 
         JLabel msg = new JLabel(
@@ -453,14 +489,11 @@ public class BattleScreen extends JPanel implements ActionListener {
 
         JPanel btnRow = new JPanel(new GridLayout(1, 2, 16, 0));
         btnRow.setOpaque(false);
-
         JButton yesBtn = menuBtn("YES", new Color(30, 140, 60));
         JButton noBtn  = menuBtn("NO",  new Color(160, 40, 40));
         yesBtn.addActionListener(e -> applyItemToCreature());
         noBtn.addActionListener(e -> { rebuildCreatureSelectPanel(); showCard("CreatureSelect"); });
-
-        btnRow.add(yesBtn);
-        btnRow.add(noBtn);
+        btnRow.add(yesBtn); btnRow.add(noBtn);
         confirmPanel.add(btnRow, BorderLayout.SOUTH);
         confirmPanel.revalidate();
         confirmPanel.repaint();
@@ -495,9 +528,7 @@ public class BattleScreen extends JPanel implements ActionListener {
             lunasCount--;
             Move target = null;
             for (Move m : pendingTarget.moveset) {
-                if (m.pp < m.maxPp) {
-                    if (target == null || m.pp < target.pp) target = m;
-                }
+                if (m.pp < m.maxPp) { if (target == null || m.pp < target.pp) target = m; }
             }
             String resultMsg;
             if (target == null) {
@@ -537,7 +568,6 @@ public class BattleScreen extends JPanel implements ActionListener {
             showMessage(oppMon.name + " was captured!", () ->
                     showMessage("Team: " + capturedTeam.size() + "/" + (MAX_TEAM_SIZE - 1), () -> {
                         if (onBattleEnd != null)
-                            // ✅ Pass updated counts
                             onBattleEnd.onComplete(userMon, capturedTeam, scrollCount,
                                     lunasCount, potionCount, false);
                     })
@@ -661,21 +691,6 @@ public class BattleScreen extends JPanel implements ActionListener {
         return bar;
     }
 
-    private JLabel loadSprite(String path) {
-        try {
-            java.net.URL url = getClass().getResource(path);
-            if (url != null) {
-                ImageIcon icon = new ImageIcon(url);
-                Image scaled   = icon.getImage().getScaledInstance(130, 130, Image.SCALE_SMOOTH);
-                return new JLabel(new ImageIcon(scaled));
-            }
-        } catch (Exception ignored) {}
-        JLabel lbl = new JLabel("?", SwingConstants.CENTER);
-        lbl.setForeground(Color.WHITE);
-        lbl.setFont(new Font("Arial", Font.BOLD, 40));
-        return lbl;
-    }
-
     private JButton menuBtn(String text, Color bg) {
         JButton btn = new JButton(text);
         btn.setBackground(bg);
@@ -766,7 +781,6 @@ public class BattleScreen extends JPanel implements ActionListener {
             rebuildSwitchPanel();
             showCard("Switch");
         } else if (src == runBtn) {
-            // ✅ Pass updated counts on run
             showMessage("You ran away safely!", () -> {
                 if (onRun != null)
                     onRun.onComplete(userMon, capturedTeam, scrollCount,
@@ -827,7 +841,6 @@ public class BattleScreen extends JPanel implements ActionListener {
                     showMessage(oppMon.name + " fainted!", () ->
                             showMessage("You won!", () -> {
                                 if (onBattleEnd != null)
-                                    // ✅ Pass updated counts on win
                                     onBattleEnd.onComplete(userMon, capturedTeam, scrollCount,
                                             lunasCount, potionCount, false);
                             })
@@ -842,7 +855,6 @@ public class BattleScreen extends JPanel implements ActionListener {
                                     showMessage("You blacked out...", () -> {
                                         healAllFighters();
                                         if (onBattleEnd != null)
-                                            // ✅ Pass updated counts on blackout
                                             onBattleEnd.onComplete(defaultMon, capturedTeam,
                                                     scrollCount, lunasCount, potionCount, true);
                                     })
