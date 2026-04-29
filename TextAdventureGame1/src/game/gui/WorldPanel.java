@@ -24,6 +24,16 @@ public class WorldPanel extends JPanel implements Runnable {
     private int lunasCount;
     private int potionCount;
 
+    // ✅ Player profile
+    private String playerName   = "";
+    private int    playerAge    = 0;
+    private String playerGender = "";
+    private int    antingAntingCount = 0;
+
+    // ✅ Speedrun timer
+    private long gameStartTime = System.currentTimeMillis();
+    private boolean timerRunning = true;
+
     private final int TILE_SIZE = 16;
     private final int SCALE = 9;
     private final int TILE_DISPLAY_SIZE = TILE_SIZE * SCALE;
@@ -55,6 +65,10 @@ public class WorldPanel extends JPanel implements Runnable {
     private JPanel bagOverlay = null;
     private ArrayList<Rectangle> bagRowRects = new ArrayList<>();
 
+    // ✅ Welcome message state
+    private boolean showWelcome  = false;
+    private JPanel  welcomePanel = null;
+
     private int[][][] allLayerData;
     private int mapWidth;
     private int mapHeight;
@@ -63,15 +77,23 @@ public class WorldPanel extends JPanel implements Runnable {
     private String pendingItemUse = "";
     private Fighter pendingTarget = null;
 
-    // ✅ First time constructor
-    public WorldPanel(GameScene gameScene) {
+    // ✅ First time constructor - with profile, shows welcome
+    public WorldPanel(GameScene gameScene,
+                      String playerName, int playerAge, String playerGender) {
         this(gameScene, 4205, 5125,
                 new ArrayList<>(),
                 game.battle.Create.createPlayerStarter(),
-                3, 3, 3, 0L);
+                3, 3, 3,
+                playerName, playerAge, playerGender,
+                System.currentTimeMillis(),
+                0L);
+        SwingUtilities.invokeLater(() -> new Timer(400, e -> {
+            ((Timer) e.getSource()).stop();
+            showWelcomeMessage();
+        }).start());
     }
 
-    // ✅ Full constructor
+    // ✅ Full constructor - restores all state after battle
     public WorldPanel(GameScene gameScene,
                       int startX, int startY,
                       ArrayList<Fighter> team,
@@ -79,6 +101,10 @@ public class WorldPanel extends JPanel implements Runnable {
                       int scrollCount,
                       int lunasCount,
                       int potionCount,
+                      String playerName,
+                      int playerAge,
+                      String playerGender,
+                      long gameStartTime,
                       long cooldownUntil) {
         this.gameScene              = gameScene;
         this.playerX                = startX;
@@ -88,6 +114,11 @@ public class WorldPanel extends JPanel implements Runnable {
         this.scrollCount            = scrollCount;
         this.lunasCount             = lunasCount;
         this.potionCount            = potionCount;
+        this.playerName             = playerName;
+        this.playerAge              = playerAge;
+        this.playerGender           = playerGender;
+        this.gameStartTime          = gameStartTime;
+        this.timerRunning           = true;
         this.encounterCooldownUntil = cooldownUntil;
 
         this.setLayout(null);
@@ -105,6 +136,179 @@ public class WorldPanel extends JPanel implements Runnable {
 
         loadMap("resources/World1.tmx");
         initSolidTiles();
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // WELCOME MESSAGE
+    // ══════════════════════════════════════════════════════════════
+
+    private void showWelcomeMessage() {
+        if (welcomePanel != null) this.remove(welcomePanel);
+
+        int pw = 700, ph = 190;
+        int px = (1280 - pw) / 2;
+        int py = (720  - ph) / 2;
+
+        welcomePanel = new JPanel(null) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                        RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(0, 0, 0, 200));
+                g2.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+        welcomePanel.setOpaque(false);
+        welcomePanel.setBounds(0, 0, 1280, 720);
+
+        JPanel box = new JPanel(null) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                        RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(18, 12, 5));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
+                g2.setColor(new Color(170, 120, 50));
+                g2.setStroke(new BasicStroke(2.5f));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
+            }
+        };
+        box.setOpaque(false);
+        box.setBounds(px, py, pw, ph);
+
+        JLabel l1 = welcomeLabel("You have been left with a creature", new Color(255, 215, 90), 18, true);
+        JLabel l2 = welcomeLabel("of your Grandpa — a Santelmo!", Color.WHITE, 16, false);
+        JLabel l3 = welcomeLabel("\"Take care of it. Your adventure begins now, "
+                + playerName + ".\"", new Color(180, 180, 180), 13, false);
+        JLabel l4 = welcomeLabel("Good luck on your speedrun!", new Color(100, 200, 255), 12, false);
+
+        l1.setBounds(20, 16, pw - 40, 28);
+        l2.setBounds(20, 50, pw - 40, 24);
+        l3.setBounds(20, 80, pw - 40, 22);
+        l4.setBounds(20, 106, pw - 40, 20);
+        box.add(l1); box.add(l2); box.add(l3); box.add(l4);
+
+        JButton okBtn = new JButton("LET'S GO!");
+        okBtn.setBackground(new Color(40, 130, 55));
+        okBtn.setForeground(Color.WHITE);
+        okBtn.setFont(new Font("Monospaced", Font.BOLD, 14));
+        okBtn.setFocusPainted(false);
+        okBtn.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
+        okBtn.setBounds(pw / 2 - 80, ph - 52, 160, 36);
+        okBtn.addActionListener(e -> dismissWelcome());
+        box.add(okBtn);
+
+        welcomePanel.add(box);
+        this.add(welcomePanel);
+        this.setComponentZOrder(welcomePanel, 0);
+        showWelcome = true;
+        this.revalidate();
+        this.repaint();
+    }
+
+    private JLabel welcomeLabel(String text, Color color, int size, boolean bold) {
+        JLabel lbl = new JLabel(text, SwingConstants.CENTER);
+        lbl.setForeground(color);
+        lbl.setFont(new Font("Monospaced", bold ? Font.BOLD : Font.PLAIN, size));
+        return lbl;
+    }
+
+    private void dismissWelcome() {
+        if (welcomePanel != null) {
+            this.remove(welcomePanel);
+            welcomePanel = null;
+        }
+        showWelcome = false;
+        this.revalidate();
+        this.repaint();
+        requestFocusInWindow();
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // HUD — top-left profile card with timer
+    // ══════════════════════════════════════════════════════════════
+
+    private void drawHUD(Graphics2D g2) {
+        int x = 10, y = 10;
+        int w = 200, h = 126;
+
+        // Card background
+        g2.setColor(new Color(0, 0, 0, 180));
+        g2.fillRoundRect(x, y, w, h, 12, 12);
+        g2.setColor(new Color(170, 120, 50));
+        g2.setStroke(new BasicStroke(1.5f));
+        g2.drawRoundRect(x, y, w, h, 12, 12);
+
+        int tx = x + 10;
+        int ty = y + 18;
+        int lineH = 18;
+
+        // Name
+        g2.setColor(new Color(255, 215, 90));
+        g2.setFont(new Font("Monospaced", Font.BOLD, 13));
+        g2.drawString(playerName.isEmpty() ? "Player" : playerName, tx, ty);
+        ty += lineH;
+
+        // Age & Gender
+        g2.setColor(new Color(200, 200, 200));
+        g2.setFont(new Font("Monospaced", Font.PLAIN, 11));
+        g2.drawString("Age: " + playerAge + "  |  " + playerGender, tx, ty);
+        ty += lineH;
+
+        // Divider
+        g2.setColor(new Color(100, 70, 15));
+        g2.setStroke(new BasicStroke(1));
+        g2.drawLine(tx, ty - 4, x + w - 10, ty - 4);
+        ty += 4;
+
+        // Anting-Anting label
+        g2.setColor(new Color(200, 160, 60));
+        g2.setFont(new Font("Monospaced", Font.BOLD, 11));
+        g2.drawString("Anting-Anting:", tx, ty + 4);
+        ty += lineH;
+
+        // Dots
+        for (int i = 0; i < 4; i++) {
+            boolean has = (i < antingAntingCount);
+            g2.setColor(has ? new Color(255, 200, 50) : new Color(60, 50, 30));
+            g2.fillOval(tx + i * 22, ty - 12, 16, 16);
+            g2.setColor(has ? new Color(200, 150, 20) : new Color(80, 60, 20));
+            g2.setStroke(new BasicStroke(1));
+            g2.drawOval(tx + i * 22, ty - 12, 16, 16);
+        }
+        g2.setColor(new Color(160, 160, 160));
+        g2.setFont(new Font("Monospaced", Font.PLAIN, 10));
+        g2.drawString(antingAntingCount + "/4", tx + 96, ty);
+        ty += lineH;
+
+        // Divider before timer
+        g2.setColor(new Color(100, 70, 15));
+        g2.setStroke(new BasicStroke(1));
+        g2.drawLine(tx, ty - 6, x + w - 10, ty - 6);
+        ty += 2;
+
+        // ✅ Timer
+        long elapsed     = System.currentTimeMillis() - gameStartTime;
+        long totalSecs   = elapsed / 1000;
+        long hours       = totalSecs / 3600;
+        long minutes     = (totalSecs % 3600) / 60;
+        long seconds     = totalSecs % 60;
+
+        String timeStr = hours > 0
+                ? String.format("%02d:%02d:%02d", hours, minutes, seconds)
+                : String.format("%02d:%02d", minutes, seconds);
+
+        // Clock icon background pill
+        g2.setColor(new Color(20, 20, 40, 200));
+        g2.fillRoundRect(tx - 2, ty - 2, w - 18, 18, 6, 6);
+
+        g2.setColor(new Color(100, 200, 255));
+        g2.setFont(new Font("Monospaced", Font.BOLD, 12));
+        g2.drawString("TIME  " + timeStr, tx + 2, ty + 12);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -151,16 +355,13 @@ public class WorldPanel extends JPanel implements Runnable {
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                         RenderingHints.VALUE_ANTIALIAS_ON);
-                // Dim background
                 g2.setColor(new Color(0, 0, 0, 190));
                 g2.fillRect(0, 0, getWidth(), getHeight());
-                // Window bg
                 g2.setColor(new Color(22, 14, 6));
                 g2.fillRoundRect(winX, winY, winW, winH, 18, 18);
                 g2.setColor(new Color(170, 120, 50));
                 g2.setStroke(new BasicStroke(3));
                 g2.drawRoundRect(winX, winY, winW, winH, 18, 18);
-                // Title bar
                 g2.setColor(new Color(70, 44, 8));
                 g2.fillRoundRect(winX, winY, winW, 48, 18, 18);
                 g2.fillRect(winX, winY + 28, winW, 20);
@@ -169,11 +370,9 @@ public class WorldPanel extends JPanel implements Runnable {
                 FontMetrics fm = g2.getFontMetrics();
                 g2.drawString("BAG",
                         winX + (winW - fm.stringWidth("BAG")) / 2, winY + 34);
-                // Divider
                 g2.setColor(new Color(170, 120, 50));
                 g2.setStroke(new BasicStroke(1.5f));
                 g2.drawLine(winX + 16, winY + 50, winX + winW - 16, winY + 50);
-                // Close hint
                 g2.setColor(new Color(120, 120, 120));
                 g2.setFont(new Font("Monospaced", Font.PLAIN, 12));
                 FontMetrics hfm = g2.getFontMetrics();
@@ -200,8 +399,6 @@ public class WorldPanel extends JPanel implements Runnable {
         this.repaint();
     }
 
-    // ── Main bag screen ──────────────────────────────────────────
-
     private void buildMainBagScreen(JPanel overlay, int winX, int winY,
                                     int winW, int winH) {
         int leftX = winX + 20;
@@ -217,14 +414,12 @@ public class WorldPanel extends JPanel implements Runnable {
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                         RenderingHints.VALUE_ANTIALIAS_ON);
-                // ITEMS label
                 g2.setColor(new Color(200, 155, 60));
                 g2.setFont(new Font("Monospaced", Font.BOLD, 12));
                 g2.drawString("ITEMS", 0, 14);
                 g2.setColor(new Color(100, 70, 15));
                 g2.setStroke(new BasicStroke(1));
                 g2.drawLine(0, 18, leftW, 18);
-                // TEAM label
                 int y = 22 + rowH * 3 + gap * 3 + 16;
                 int teamSize = capturedTeam.size() + 1;
                 g2.setColor(new Color(200, 155, 60));
@@ -238,7 +433,6 @@ public class WorldPanel extends JPanel implements Runnable {
         leftPanel.setBounds(leftX, leftY, leftW, winH - 80);
         overlay.add(leftPanel);
 
-        // ── Item buttons ─────────────────────────────────────────
         String[] itemNames  = {"Scroll", "Lunas", "Potion"};
         int[]    itemCounts = {scrollCount, lunasCount, potionCount};
         Color[]  itemColors = {
@@ -262,7 +456,6 @@ public class WorldPanel extends JPanel implements Runnable {
             iy += rowH + gap;
         }
 
-        // ── Team rows (clickable) ─────────────────────────────────
         ArrayList<Fighter> fullTeam = new ArrayList<>();
         fullTeam.add(playerFighter);
         fullTeam.addAll(capturedTeam);
@@ -285,7 +478,6 @@ public class WorldPanel extends JPanel implements Runnable {
             teamStartY += rowH + gap;
         }
 
-        // ── Right detail panel ────────────────────────────────────
         int rightX = winX + leftW + 48;
         int rightW = winW - leftW - 68;
         int rightY = winY + 60;
@@ -308,7 +500,6 @@ public class WorldPanel extends JPanel implements Runnable {
         rightPanel.setBounds(rightX, rightY, rightW, rightH);
         overlay.add(rightPanel);
 
-        // Show creature detail or item detail on the right
         if (selectedCreatureIndex >= 0 && selectedCreatureIndex < fullTeam.size()) {
             buildCreatureDetailContent(rightPanel, rightW, rightH,
                     fullTeam.get(selectedCreatureIndex));
@@ -316,8 +507,6 @@ public class WorldPanel extends JPanel implements Runnable {
             buildDetailContent(rightPanel, rightW, rightH);
         }
     }
-
-    // ── Item detail (right panel) ────────────────────────────────
 
     private void buildDetailContent(JPanel panel, int w, int h) {
         panel.removeAll();
@@ -348,8 +537,7 @@ public class WorldPanel extends JPanel implements Runnable {
                         "one of your creatures.", "", "Cannot revive fainted", "creatures."}
         };
 
-        int pad = 16;
-        int cy  = 16;
+        int pad = 16, cy = 16;
 
         JLabel titleLbl = new JLabel(names[selectedIndex]);
         titleLbl.setForeground(colors[selectedIndex]);
@@ -361,14 +549,12 @@ public class WorldPanel extends JPanel implements Runnable {
         for (String line : descs[selectedIndex]) {
             JLabel lbl = new JLabel(line);
             lbl.setForeground(line.startsWith("Quantity") ? Color.WHITE
-                    : line.isEmpty() ? Color.WHITE
-                      : new Color(180, 180, 180));
+                    : line.isEmpty() ? Color.WHITE : new Color(180, 180, 180));
             lbl.setFont(new Font("Monospaced", Font.PLAIN, 13));
             lbl.setBounds(pad, cy, w - pad * 2, 18);
             panel.add(lbl);
             cy += 18;
         }
-
         cy += 12;
 
         boolean hasItem = counts[selectedIndex] > 0;
@@ -383,31 +569,20 @@ public class WorldPanel extends JPanel implements Runnable {
 
         final int sel = selectedIndex;
         useBtn.addActionListener(e -> {
-            if (sel == 0) {
-                useScrollWorld();
-            } else if (sel == 1) {
-                pendingItemUse = "lunas";
-                buildBagOverlay("creatureSelect");
-            } else if (sel == 2) {
-                pendingItemUse = "potion";
-                buildBagOverlay("creatureSelect");
-            }
+            if (sel == 0) useScrollWorld();
+            else if (sel == 1) { pendingItemUse = "lunas"; buildBagOverlay("creatureSelect"); }
+            else if (sel == 2) { pendingItemUse = "potion"; buildBagOverlay("creatureSelect"); }
         });
         panel.add(useBtn);
-
         panel.revalidate();
         panel.repaint();
     }
 
-    // ── Creature detail (right panel) ────────────────────────────
-
     private void buildCreatureDetailContent(JPanel panel, int w, int h, Fighter f) {
         panel.removeAll();
 
-        int pad = 16;
-        int cy  = 14;
+        int pad = 16, cy = 14;
 
-        // Name
         boolean isActive = (f == playerFighter);
         JLabel nameLbl = new JLabel(f.name.toUpperCase() + (isActive ? "  ★" : ""));
         nameLbl.setForeground(isActive ? new Color(255, 215, 90) : new Color(100, 200, 255));
@@ -416,14 +591,12 @@ public class WorldPanel extends JPanel implements Runnable {
         panel.add(nameLbl);
         cy += 26;
 
-        // Divider line
         JPanel divider = new JPanel();
         divider.setBackground(new Color(80, 55, 15));
         divider.setBounds(pad, cy, w - pad * 2, 1);
         panel.add(divider);
         cy += 8;
 
-        // Type
         if (f.types != null && !f.types.isEmpty()) {
             StringBuilder typeStr = new StringBuilder("Type: ");
             for (int t = 0; t < f.types.size(); t++) {
@@ -438,7 +611,6 @@ public class WorldPanel extends JPanel implements Runnable {
             cy += 20;
         }
 
-        // Stats
         int hp    = (int) Math.max(0, f.stats.get(0).value);
         int maxHp = (int) f.stats.get(0).base;
         int atk   = (int) f.stats.get(1).value;
@@ -449,10 +621,8 @@ public class WorldPanel extends JPanel implements Runnable {
         cy = addStatBar(panel, pad, cy, w, "ATK", atk, 300,   new Color(220, 80,  80));
         cy = addStatBar(panel, pad, cy, w, "DEF", def, 300,   new Color(80,  120, 220));
         cy = addStatBar(panel, pad, cy, w, "SPD", spd, 300,   new Color(220, 180, 0));
-
         cy += 8;
 
-        // Moves title
         JLabel movesTitle = new JLabel("MOVES");
         movesTitle.setForeground(new Color(200, 160, 60));
         movesTitle.setFont(new Font("Monospaced", Font.BOLD, 12));
@@ -460,10 +630,9 @@ public class WorldPanel extends JPanel implements Runnable {
         panel.add(movesTitle);
         cy += 18;
 
-        // Move list
         for (int m = 0; m < f.moveset.size() && m < 4; m++) {
-            Move move     = f.moveset.get(m);
-            boolean noPP  = move.pp <= 0;
+            Move move    = f.moveset.get(m);
+            boolean noPP = move.pp <= 0;
 
             JLabel moveLbl = new JLabel("• " + move.name);
             moveLbl.setForeground(noPP ? new Color(150, 50, 50) : Color.WHITE);
@@ -476,7 +645,6 @@ public class WorldPanel extends JPanel implements Runnable {
             ppLbl.setFont(new Font("Monospaced", Font.PLAIN, 11));
             ppLbl.setBounds(w - pad - 70, cy, 70, 16);
             panel.add(ppLbl);
-
             cy += 18;
         }
 
@@ -501,13 +669,11 @@ public class WorldPanel extends JPanel implements Runnable {
         int barX = pad + 76;
         int barW = w - pad * 2 - 76;
 
-        // Bar background
         JPanel barBg = new JPanel(null);
         barBg.setBackground(new Color(40, 40, 40));
         barBg.setBounds(barX, cy + 2, barW, 10);
         panel.add(barBg);
 
-        // Bar fill
         float ratio = max > 0 ? Math.min(1f, (float) value / max) : 0;
         JPanel barFill = new JPanel();
         barFill.setBackground(barColor);
@@ -516,8 +682,6 @@ public class WorldPanel extends JPanel implements Runnable {
 
         return cy + 20;
     }
-
-    // ── Team row button ──────────────────────────────────────────
 
     private JButton buildTeamRowBtn(Fighter f, boolean isActive,
                                     boolean isSelected, int w, int h) {
@@ -537,38 +701,30 @@ public class WorldPanel extends JPanel implements Runnable {
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                         RenderingHints.VALUE_ANTIALIAS_ON);
-                // Background
                 g2.setColor(isSelected ? new Color(20, 40, 70)
                         : isActive ? new Color(60, 40, 10)
                           : new Color(28, 18, 5));
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                // Border
                 g2.setColor(borderColor);
                 g2.setStroke(new BasicStroke(isSelected || isActive ? 2f : 1f));
                 g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 8, 8);
-                // Star
                 if (isActive) {
                     g2.setColor(new Color(255, 215, 90));
                     g2.setFont(new Font("Monospaced", Font.BOLD, 14));
                     g2.drawString("★", 8, 22);
                 }
-                // Name
                 g2.setColor(isSelected ? new Color(100, 200, 255)
-                        : isActive ? new Color(255, 215, 90)
-                          : Color.WHITE);
+                        : isActive ? new Color(255, 215, 90) : Color.WHITE);
                 g2.setFont(new Font("Monospaced", Font.BOLD, 13));
                 g2.drawString(f.name, isActive ? 28 : 12, 22);
-                // HP text
                 g2.setColor(new Color(170, 170, 170));
                 g2.setFont(new Font("Monospaced", Font.PLAIN, 11));
                 g2.drawString(hp + "/" + maxHp, getWidth() - 70, 16);
-                // HP bar
                 int bx = 12, by = 28, bw = getWidth() - 80, bh = 7;
                 g2.setColor(new Color(50, 50, 50));
                 g2.fillRoundRect(bx, by, bw, bh, 3, 3);
                 g2.setColor(barColor);
                 g2.fillRoundRect(bx, by, (int)(bw * ratio), bh, 3, 3);
-                // Hint
                 if (!isSelected) {
                     g2.setColor(new Color(90, 90, 90));
                     g2.setFont(new Font("Monospaced", Font.PLAIN, 9));
@@ -584,17 +740,13 @@ public class WorldPanel extends JPanel implements Runnable {
         return btn;
     }
 
-    // ── Creature select screen ───────────────────────────────────
-
     private void buildCreatureSelectScreen(JPanel overlay, int winX, int winY,
                                            int winW, int winH) {
         String itemName  = pendingItemUse.equals("lunas") ? "Lunas" : "Potion";
         Color  itemColor = pendingItemUse.equals("lunas")
                 ? new Color(60, 180, 100) : new Color(60, 140, 220);
 
-        int cx = winX + 24;
-        int cy = winY + 62;
-        int cw = winW - 48;
+        int cx = winX + 24, cy = winY + 62, cw = winW - 48;
 
         JLabel titleLbl = new JLabel("Use " + itemName + " on which creature?");
         titleLbl.setForeground(itemColor);
@@ -607,11 +759,8 @@ public class WorldPanel extends JPanel implements Runnable {
         fullTeam.add(playerFighter);
         fullTeam.addAll(capturedTeam);
 
-        int cols = 3;
-        int btnW = (cw - (cols - 1) * 10) / cols;
-        int btnH = 64;
-        int col  = 0;
-        int rowY = cy;
+        int cols = 3, btnW = (cw - (cols - 1) * 10) / cols;
+        int btnH = 64, col = 0, rowY = cy;
 
         for (Fighter f : fullTeam) {
             int hp    = (int) Math.max(0, f.stats.get(0).value);
@@ -628,8 +777,7 @@ public class WorldPanel extends JPanel implements Runnable {
                     + "</font></center></html>";
 
             Color bg = !canUse ? new Color(60, 40, 40)
-                    : (f == playerFighter ? new Color(50, 40, 10)
-                       : new Color(20, 40, 20));
+                    : (f == playerFighter ? new Color(50, 40, 10) : new Color(20, 40, 20));
 
             JButton btn = new JButton(label);
             btn.setBackground(bg);
@@ -643,13 +791,9 @@ public class WorldPanel extends JPanel implements Runnable {
 
             if (canUse) {
                 final Fighter target = f;
-                btn.addActionListener(ev -> {
-                    pendingTarget = target;
-                    buildBagOverlay("confirm");
-                });
+                btn.addActionListener(ev -> { pendingTarget = target; buildBagOverlay("confirm"); });
             }
             overlay.add(btn);
-
             col++;
             if (col >= cols) { col = 0; rowY += btnH + 10; }
         }
@@ -662,14 +806,12 @@ public class WorldPanel extends JPanel implements Runnable {
         backBtn.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
         backBtn.setBounds(winX + winW - 140, winY + winH - 56, 120, 36);
         backBtn.addActionListener(e -> {
-            pendingItemUse        = "";
-            selectedIndex         = -1;
+            pendingItemUse = "";
+            selectedIndex  = -1;
             buildBagOverlay("main");
         });
         overlay.add(backBtn);
     }
-
-    // ── Confirm screen ───────────────────────────────────────────
 
     private void buildConfirmScreen(JPanel overlay, int winX, int winY,
                                     int winW, int winH) {
@@ -678,8 +820,7 @@ public class WorldPanel extends JPanel implements Runnable {
                 ? new Color(60, 180, 100) : new Color(60, 140, 220);
         String effect    = pendingItemUse.equals("lunas") ? "restore PP" : "restore 30 HP";
 
-        int cx = winX + winW / 2;
-        int cy = winY + winH / 2 - 60;
+        int cx = winX + winW / 2, cy = winY + winH / 2 - 60;
 
         JLabel msg = new JLabel(
                 "<html><center>Use <b>" + itemName + "</b> on <b>"
@@ -690,8 +831,7 @@ public class WorldPanel extends JPanel implements Runnable {
         msg.setBounds(winX + 60, cy, winW - 120, 60);
         overlay.add(msg);
 
-        int btnY = cy + 80;
-        int btnW = 160, btnH = 46;
+        int btnY = cy + 80, btnW = 160, btnH = 46;
 
         JButton yesBtn = new JButton("YES");
         yesBtn.setBackground(new Color(30, 140, 60));
@@ -713,8 +853,6 @@ public class WorldPanel extends JPanel implements Runnable {
         noBtn.addActionListener(e -> buildBagOverlay("creatureSelect"));
         overlay.add(noBtn);
     }
-
-    // ── Apply item ───────────────────────────────────────────────
 
     private void applyItemWorld() {
         if (pendingTarget == null) return;
@@ -768,8 +906,7 @@ public class WorldPanel extends JPanel implements Runnable {
         resultOverlay.setBounds(0, 0, 1280, 720);
 
         int rw = 500, rh = 100;
-        int rx = (1280 - rw) / 2;
-        int ry = (720  - rh) / 2;
+        int rx = (1280 - rw) / 2, ry = (720 - rh) / 2;
 
         JPanel box = new JPanel(new BorderLayout());
         box.setBackground(new Color(22, 14, 6));
@@ -793,8 +930,6 @@ public class WorldPanel extends JPanel implements Runnable {
             closeBag();
         }).start();
     }
-
-    // ── Helpers ──────────────────────────────────────────────────
 
     private JButton styledItemBtn(String name, int count, Color accent, boolean selected) {
         JButton btn = new JButton("<html><b>" + name + "</b>&nbsp;&nbsp;x" + count + "</html>");
@@ -865,10 +1000,10 @@ public class WorldPanel extends JPanel implements Runnable {
     private void update() {
         if (keyH.bagJustPressed) {
             if (showBag) closeBag();
-            else openBag();
+            else if (!showWelcome) openBag();
             keyH.bagJustPressed = false;
         }
-        if (showBag) return;
+        if (showWelcome || showBag) return;
 
         boolean moving = false;
         int newX = playerX, newY = playerY;
@@ -947,13 +1082,10 @@ public class WorldPanel extends JPanel implements Runnable {
                 }
             }
 
-            int px = playerX - cameraX;
-            int py = playerY - cameraY;
-
+            int px = playerX - cameraX, py = playerY - cameraY;
             if (playerSheet != null) {
                 int fw = 25, fh = 25;
-                g2.drawImage(playerSheet,
-                        px, py,
+                g2.drawImage(playerSheet, px, py,
                         px + PLAYER_SIZE_W, py + PLAYER_SIZE_H,
                         currentFrame * fw, currentRow * fh,
                         currentFrame * fw + fw, currentRow * fh + fh, null);
@@ -966,6 +1098,9 @@ public class WorldPanel extends JPanel implements Runnable {
             g2.setFont(new Font("Arial", Font.BOLD, 20));
             g2.drawString("Map failed to load!", 50, 50);
         }
+
+        // ✅ Always draw HUD on top
+        drawHUD(g2);
     }
 
     // ── Map loading ───────────────────────────────────────────────
@@ -973,17 +1108,12 @@ public class WorldPanel extends JPanel implements Runnable {
     private void loadMap(String path) {
         try {
             File file = new File(path);
-            if (!file.exists()) {
-                System.err.println("Map not found: " + path);
-                return;
-            }
+            if (!file.exists()) { System.err.println("Map not found: " + path); return; }
             String content = new java.util.Scanner(file).useDelimiter("\\Z").next();
             mapWidth  = Integer.parseInt(content.split("width=\"")[1].split("\"")[0]);
             mapHeight = Integer.parseInt(content.split("height=\"")[1].split("\"")[0]);
-
             String[] layers = content.split("<data encoding=\"csv\">");
             allLayerData = new int[layers.length - 1][mapHeight][mapWidth];
-
             for (int l = 1; l < layers.length; l++) {
                 String csvData = layers[l].split("</data>")[0].trim();
                 String[] values = csvData.split(",");
@@ -994,9 +1124,7 @@ public class WorldPanel extends JPanel implements Runnable {
                 }
             }
             loadTilesets(content);
-        } catch (Exception e) {
-            System.err.println("Error loading map: " + e.getMessage());
-        }
+        } catch (Exception e) { System.err.println("Error loading map: " + e.getMessage()); }
     }
 
     private void loadTilesets(String tmxContent) {
@@ -1006,37 +1134,31 @@ public class WorldPanel extends JPanel implements Runnable {
                 String block  = tilesetBlocks[i];
                 int firstGid  = Integer.parseInt(block.split("firstgid=\"")[1].split("\"")[0]);
                 String tsxSrc = block.split("source=\"")[1].split("\"")[0];
-
-                File tsxFile = new File("resources/" + tsxSrc);
+                File tsxFile  = new File("resources/" + tsxSrc);
                 if (!tsxFile.exists()) tsxFile = new File(tsxSrc);
                 if (!tsxFile.exists()) continue;
-
                 String tsxContent = new java.util.Scanner(tsxFile).useDelimiter("\\Z").next();
                 int tw = TILE_SIZE, th = TILE_SIZE;
                 if (tsxContent.contains("tilewidth=\"")) {
                     tw = Integer.parseInt(tsxContent.split("tilewidth=\"")[1].split("\"")[0]);
                     th = Integer.parseInt(tsxContent.split("tileheight=\"")[1].split("\"")[0]);
                 }
-
                 String imgSrc = tsxContent.split("source=\"")[1].split("\"")[0];
                 File imgFile  = new File("resources/" + imgSrc);
                 if (!imgFile.exists())
                     imgFile = new File("resources/Texture/" + new File(imgSrc).getName());
                 if (!imgFile.exists()) continue;
-
                 BufferedImage tilesetImg = ImageIO.read(imgFile);
                 int cols = tilesetImg.getWidth()  / tw;
                 int rows = tilesetImg.getHeight() / th;
-
                 for (int r = 0; r < rows; r++) {
                     for (int c = 0; c < cols; c++) {
                         int gid = firstGid + (r * cols + c);
-                        int sx  = c * tw, sy = r * th;
+                        int sx = c * tw, sy = r * th;
                         if (sx + tw > tilesetImg.getWidth() ||
                                 sy + th > tilesetImg.getHeight()) continue;
                         BufferedImage tile = tilesetImg.getSubimage(sx, sy, tw, th);
-                        BufferedImage copy = new BufferedImage(tw, th,
-                                BufferedImage.TYPE_INT_ARGB);
+                        BufferedImage copy = new BufferedImage(tw, th, BufferedImage.TYPE_INT_ARGB);
                         Graphics2D tg = copy.createGraphics();
                         tg.drawImage(tile, 0, 0, null);
                         tg.dispose();
@@ -1044,8 +1166,6 @@ public class WorldPanel extends JPanel implements Runnable {
                     }
                 }
             }
-        } catch (Exception e) {
-            System.err.println("Error loading tilesets: " + e.getMessage());
-        }
+        } catch (Exception e) { System.err.println("Error loading tilesets: " + e.getMessage()); }
     }
 }

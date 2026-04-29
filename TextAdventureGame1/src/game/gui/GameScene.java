@@ -23,6 +23,14 @@ public class GameScene extends JFrame {
     private static final int SPAWN_X = 4205;
     private static final int SPAWN_Y = 5125;
 
+    // ✅ Player profile
+    private String playerName   = "";
+    private int    playerAge    = 0;
+    private String playerGender = "";
+
+    // ✅ Speedrun timer - set once when world first loads
+    private long gameStartTime = 0L;
+
     public GameScene(ProgressionManager pm) {
         this.progressionManager = pm;
         setTitle("ALAMAT - Journey");
@@ -82,6 +90,13 @@ public class GameScene extends JFrame {
         setLocationRelativeTo(null);
     }
 
+    // ✅ Set profile from character creation
+    public void setPlayerProfile(String name, int age, String gender) {
+        this.playerName   = name;
+        this.playerAge    = age;
+        this.playerGender = gender;
+    }
+
     public void updateDisplay(String imagePath, String text) {
         File imgFile = new File(imagePath);
         if (imgFile.exists()) {
@@ -108,12 +123,14 @@ public class GameScene extends JFrame {
         }).start();
     }
 
-    // ✅ First time - default item counts
+    // ✅ First time - set timer start now
     public void switchToWorld() {
+        gameStartTime = System.currentTimeMillis();
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
-            WorldPanel world = new WorldPanel(this);
+            WorldPanel world = new WorldPanel(
+                    this, playerName, playerAge, playerGender);
             this.add(world, BorderLayout.CENTER);
             this.pack();
             this.setLocationRelativeTo(null);
@@ -126,7 +143,7 @@ public class GameScene extends JFrame {
         });
     }
 
-    // ✅ Return to world - now carries lunas and potions too
+    // ✅ Return to world after battle - pass same gameStartTime so timer continues
     public void switchToWorldAt(int x, int y,
                                 ArrayList<Fighter> team,
                                 Fighter playerFighter,
@@ -139,7 +156,10 @@ public class GameScene extends JFrame {
             this.setLayout(new BorderLayout());
             WorldPanel world = new WorldPanel(
                     this, x, y, team, playerFighter,
-                    scrollCount, lunasCount, potionCount, cooldownUntil);
+                    scrollCount, lunasCount, potionCount,
+                    playerName, playerAge, playerGender,
+                    gameStartTime,   // ✅ same start time, timer never resets
+                    cooldownUntil);
             this.add(world, BorderLayout.CENTER);
             this.pack();
             this.setLocationRelativeTo(null);
@@ -152,7 +172,7 @@ public class GameScene extends JFrame {
         });
     }
 
-    // ✅ Launch battle - now passes lunas and potions in, reads them back out
+    // ✅ Launch battle
     public void switchToBattle(Fighter playerFighter,
                                Fighter wildFighter,
                                ArrayList<Fighter> team,
@@ -165,35 +185,32 @@ public class GameScene extends JFrame {
             this.setLayout(new BorderLayout());
 
             BattleScreen battle = new BattleScreen(
-                    playerFighter,
-                    wildFighter,
-                    team,
-                    scrollCount,
-                    lunasCount,
-                    potionCount,
+                    playerFighter, wildFighter, team,
+                    scrollCount, lunasCount, potionCount,
 
-                    // ✅ onBattleEnd - receive updated counts back
                     (updatedFighter, updatedTeam, updatedScrolls,
                      updatedLunas, updatedPotions, blackout) -> {
                         long cooldownUntil = System.currentTimeMillis() + 5000L;
                         if (blackout) {
                             switchToWorldAt(SPAWN_X, SPAWN_Y,
                                     updatedTeam, updatedFighter,
-                                    updatedScrolls, updatedLunas, updatedPotions, 0L);
+                                    updatedScrolls, updatedLunas,
+                                    updatedPotions, 0L);
                         } else {
                             switchToWorldAt(savedX, savedY,
                                     updatedTeam, updatedFighter,
-                                    updatedScrolls, updatedLunas, updatedPotions, cooldownUntil);
+                                    updatedScrolls, updatedLunas,
+                                    updatedPotions, cooldownUntil);
                         }
                     },
 
-                    // ✅ onRun - receive updated counts back
                     (updatedFighter, updatedTeam, updatedScrolls,
                      updatedLunas, updatedPotions, blackout) -> {
                         long cooldownUntil = System.currentTimeMillis() + 5000L;
                         switchToWorldAt(savedX, savedY,
                                 updatedTeam, updatedFighter,
-                                updatedScrolls, updatedLunas, updatedPotions, cooldownUntil);
+                                updatedScrolls, updatedLunas,
+                                updatedPotions, cooldownUntil);
                     }
             );
 
