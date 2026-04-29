@@ -4,6 +4,8 @@ import java.awt.event.*;
 
 public class KeyHandler implements KeyListener {
     public boolean up, down, left, right;
+    public boolean bagJustPressed = false;
+    private boolean bagWasDown = false;
 
     public void keyPressed(KeyEvent e) {
         int code = e.getKeyCode();
@@ -11,6 +13,10 @@ public class KeyHandler implements KeyListener {
         if (code == KeyEvent.VK_S) down = true;
         if (code == KeyEvent.VK_A) left = true;
         if (code == KeyEvent.VK_D) right = true;
+        if (code == KeyEvent.VK_B && !bagWasDown) {
+            bagJustPressed = true;
+            bagWasDown = true;
+        }
     }
 
     public void keyReleased(KeyEvent e) {
@@ -19,6 +25,7 @@ public class KeyHandler implements KeyListener {
         if (code == KeyEvent.VK_S) down = false;
         if (code == KeyEvent.VK_A) left = false;
         if (code == KeyEvent.VK_D) right = false;
+        if (code == KeyEvent.VK_B) bagWasDown = false;
     }
 
     public void keyTyped(KeyEvent e) {}

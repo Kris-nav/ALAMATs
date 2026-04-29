@@ -1,6 +1,5 @@
 package game.gui;
 
-import game.battle.BattleCallback;
 import game.battle.BattleScreen;
 import game.battle.Fighter;
 import game.core.ProgressionManager;
@@ -21,7 +20,6 @@ public class GameScene extends JFrame {
     private final int W = 1280;
     private final int H = 720;
 
-    // ✅ Default spawn position
     private static final int SPAWN_X = 4205;
     private static final int SPAWN_Y = 5125;
 
@@ -66,9 +64,7 @@ public class GameScene extends JFrame {
         nextButton.setFont(new Font("Arial", Font.BOLD, 18));
         nextButton.setFocusPainted(false);
         nextButton.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
-        nextButton.addActionListener(e -> {
-            if (!isTyping) progressionManager.handleNextScene();
-        });
+        nextButton.addActionListener(e -> { if (!isTyping) progressionManager.handleNextScene(); });
         textPanel.add(nextButton);
 
         skipButton = new JButton("SKIP");
@@ -112,7 +108,7 @@ public class GameScene extends JFrame {
         }).start();
     }
 
-    // ✅ First time - fresh world, Santelmo, no cooldown
+    // ✅ First time - default item counts
     public void switchToWorld() {
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
@@ -130,17 +126,20 @@ public class GameScene extends JFrame {
         });
     }
 
-    // ✅ Return to world - pass exact cooldown timestamp
+    // ✅ Return to world - now carries lunas and potions too
     public void switchToWorldAt(int x, int y,
                                 ArrayList<Fighter> team,
                                 Fighter playerFighter,
                                 int scrollCount,
+                                int lunasCount,
+                                int potionCount,
                                 long cooldownUntil) {
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
             WorldPanel world = new WorldPanel(
-                    this, x, y, team, playerFighter, scrollCount, cooldownUntil);
+                    this, x, y, team, playerFighter,
+                    scrollCount, lunasCount, potionCount, cooldownUntil);
             this.add(world, BorderLayout.CENTER);
             this.pack();
             this.setLocationRelativeTo(null);
@@ -153,11 +152,13 @@ public class GameScene extends JFrame {
         });
     }
 
-    // ✅ Launch battle - all logic for run/blackout handled HERE
+    // ✅ Launch battle - now passes lunas and potions in, reads them back out
     public void switchToBattle(Fighter playerFighter,
                                Fighter wildFighter,
                                ArrayList<Fighter> team,
                                int scrollCount,
+                               int lunasCount,
+                               int potionCount,
                                int savedX, int savedY) {
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
@@ -168,38 +169,31 @@ public class GameScene extends JFrame {
                     wildFighter,
                     team,
                     scrollCount,
+                    lunasCount,
+                    potionCount,
 
-                    // ✅ onBattleEnd - won, lost, or captured
-                    (updatedFighter, updatedTeam, updatedScrolls, blackout) -> {
+                    // ✅ onBattleEnd - receive updated counts back
+                    (updatedFighter, updatedTeam, updatedScrolls,
+                     updatedLunas, updatedPotions, blackout) -> {
+                        long cooldownUntil = System.currentTimeMillis() + 5000L;
                         if (blackout) {
-                            // ✅ All fainted - go to SPAWN, no cooldown
-                            switchToWorldAt(
-                                    SPAWN_X, SPAWN_Y,
-                                    updatedTeam,
-                                    updatedFighter,
-                                    updatedScrolls,
-                                    0L); // ✅ no cooldown after blackout
+                            switchToWorldAt(SPAWN_X, SPAWN_Y,
+                                    updatedTeam, updatedFighter,
+                                    updatedScrolls, updatedLunas, updatedPotions, 0L);
                         } else {
-                            // ✅ Normal win - return to saved position, no cooldown
-                            switchToWorldAt(
-                                    savedX, savedY,
-                                    updatedTeam,
-                                    updatedFighter,
-                                    updatedScrolls,
-                                    0L);
+                            switchToWorldAt(savedX, savedY,
+                                    updatedTeam, updatedFighter,
+                                    updatedScrolls, updatedLunas, updatedPotions, cooldownUntil);
                         }
                     },
 
-                    // ✅ onRun - return to saved position WITH cooldown
-                    (updatedFighter, updatedTeam, updatedScrolls, blackout) -> {
-                        // ✅ Calculate cooldown end time right now
+                    // ✅ onRun - receive updated counts back
+                    (updatedFighter, updatedTeam, updatedScrolls,
+                     updatedLunas, updatedPotions, blackout) -> {
                         long cooldownUntil = System.currentTimeMillis() + 5000L;
-                        switchToWorldAt(
-                                savedX, savedY,
-                                updatedTeam,
-                                updatedFighter,
-                                updatedScrolls,
-                                cooldownUntil); // ✅ pass cooldown so new WorldPanel respects it
+                        switchToWorldAt(savedX, savedY,
+                                updatedTeam, updatedFighter,
+                                updatedScrolls, updatedLunas, updatedPotions, cooldownUntil);
                     }
             );
 
