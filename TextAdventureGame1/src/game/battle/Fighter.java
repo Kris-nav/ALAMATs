@@ -1,151 +1,245 @@
 package game.battle;
 
 import java.util.ArrayList;
-import java.util.Random;
+import java.util.List;
 
 public class Fighter {
     public String name;
-    public ArrayList<Type> types;
-    public ArrayList<Move> moveset;
-    public ArrayList<Stat> stats;
-    public ArrayList<Type> weak;
-    public ArrayList<Type> immune;
-    public ArrayList<Type> resist;
-    public String message;
     public String sprite;
     public String back_sprite;
-    public boolean fainted = false; // ✅ track faint state
+    public ArrayList<Type> types;
+    public ArrayList<Stat> stats;
+    public ArrayList<Move> moveset;
+    public ArrayList<Move> allMoves;
+    public ArrayList<Integer> moveUnlockLevels;
 
-    public Fighter(String name, ArrayList<Type> types, ArrayList<Stat> stats,
-                   ArrayList<Type> weak, ArrayList<Type> resist, ArrayList<Type> immune,
-                   String sprite, String back_sprite) {
-        this.name       = name;
-        this.types      = types;
-        this.stats      = stats;
-        this.moveset    = new ArrayList<>();
-        this.weak       = weak;
-        this.resist     = resist;
-        this.immune     = immune;
-        this.message    = "";
-        this.sprite     = sprite;
-        this.back_sprite = back_sprite;
+    public int level;
+    public int exp;
+    public int expToNext;
+
+    public boolean fainted = false;
+    public String  message = "";
+
+    // ✅ EXP needed to go from this level to next
+    public static int expNeeded(int fromLevel) {
+        return Math.max(80, 80 + (fromLevel - 5) * 20);
     }
 
-    // ✅ Only this one addMove - no duplicates
-    public void addMove(Move move) {
-        this.moveset.add(move);
-    }
+    // ✅ Full constructor with leveling + locked moves
+    public Fighter(String name, String sprite, String back_sprite,
+                   ArrayList<Type> types,
+                   ArrayList<Stat> stats,
+                   ArrayList<Move> allMoves,
+                   ArrayList<Integer> moveUnlockLevels,
+                   int level) {
+        this.name             = name;
+        this.sprite           = sprite;
+        this.back_sprite      = back_sprite;
+        this.types            = types;
+        this.stats            = stats;
+        this.allMoves         = allMoves;
+        this.moveUnlockLevels = moveUnlockLevels;
+        this.level            = level;
+        this.exp              = 0;
+        this.expToNext        = expNeeded(level);
 
-    public void useMove(Fighter target, int id) {
-        Move move = this.moveset.get(id);
-        if (move.damage > 0) {
-            target.stats.get(0).value = Math.max(0,
-                    target.stats.get(0).value - damageCalc(move, this, target));
-            if (target.stats.get(0).value <= 0) {
-                target.fainted = true;
+        // ✅ Build moveset — all 4 slots with real names, locked ones marked
+        this.moveset = new ArrayList<>();
+        for (int i = 0; i < allMoves.size() && this.moveset.size() < 4; i++) {
+            Move m   = allMoves.get(i);
+            int  req = (i < moveUnlockLevels.size()) ? moveUnlockLevels.get(i) : 1;
+            Move copy = new Move(m.name, m.type, m.damage, m.stat_changes, m.maxPp);
+            if (level < req) {
+                copy.lockedUntilLevel = req; // locked — shows name but can't use
+                copy.pp    = 0;
             }
-            if (target.weak.contains(move.type) && !target.resist.contains(move.type)) {
-                this.message = "It was super effective!";
-            } else if (target.resist.contains(move.type)) {
-                this.message = "It was not very effective.";
-            } else if (target.immune.contains(move.type)) {
-                this.message = "It did not affect " + target.name + ".";
+            this.moveset.add(copy);
+        }
+
+        // Pad remaining slots to 4 if fewer than 4 moves defined
+        while (this.moveset.size() < 4) {
+            Type normalType = new Type("Normal", 0xAAAAAA);
+            Move pad = new Move("---", normalType, 0, new ArrayList<>(), 1);
+            pad.lockedUntilLevel = 999; // permanently locked placeholder
+            this.moveset.add(pad);
+        }
+    }
+
+    // ✅ Legacy constructor (all moves immediately available, no unlock levels)
+    public Fighter(String name, String sprite, String back_sprite,
+                   ArrayList<Type> types,
+                   ArrayList<Stat> stats,
+                   ArrayList<Move> moveset) {
+        this.name             = name;
+        this.sprite           = sprite;
+        this.back_sprite      = back_sprite;
+        this.types            = types;
+        this.stats            = stats;
+        this.moveset          = moveset;
+        this.allMoves         = new ArrayList<>(moveset);
+        this.moveUnlockLevels = new ArrayList<>();
+        for (int i = 0; i < moveset.size(); i++) moveUnlockLevels.add(1);
+        this.level     = 5;
+        this.exp       = 0;
+        this.expToNext = expNeeded(5);
+    }
+
+    // ✅ Gain EXP, handle level ups, return newly unlocked move names
+    public List<String> gainExp(int amount) {
+        List<String> newMoves = new ArrayList<>();
+        exp += amount;
+        while (exp >= expToNext) {
+            exp -= expToNext;
+            level++;
+            expToNext = expNeeded(level);
+            scaleStatsOnLevelUp();
+            newMoves.addAll(checkNewMoves());
+        }
+        return newMoves;
+    }
+
+    private void scaleStatsOnLevelUp() {
+        if (stats.size() > 0) { stats.get(0).base += 10; stats.get(0).value += 10; }
+        if (stats.size() > 1) { stats.get(1).base += 4;  stats.get(1).value += 4;  }
+        if (stats.size() > 2) { stats.get(2).base += 3;  stats.get(2).value += 3;  }
+        if (stats.size() > 3) { stats.get(3).base += 3;  stats.get(3).value += 3;  }
+    }
+
+    // ✅ Unlock moves that become available at the new level
+    private List<String> checkNewMoves() {
+        List<String> unlocked = new ArrayList<>();
+
+        // Unlock any locked moves in current moveset
+        for (int i = 0; i < moveset.size(); i++) {
+            Move mv = moveset.get(i);
+            if (mv.isLocked() && mv.lockedUntilLevel != 999
+                    && level >= mv.lockedUntilLevel) {
+                mv.lockedUntilLevel = 0;
+                mv.pp    = mv.maxPp;
+                unlocked.add(mv.name);
             }
         }
-        for (int i = 0; i < target.stats.size(); i++) {
-            if (move.stat_changes.get(i) < 0) {
-                this.message = target.name + "'s " + target.stats.get(i).name + " was lowered!";
-                target.stats.get(i).value += target.stats.get(i).value * move.stat_changes.get(i);
-            } else if (move.stat_changes.get(i) > 0) {
-                if (i == 0 && this.stats.get(i).value == this.stats.get(i).base) {
-                    this.message = this.name + "'s " + this.stats.get(i).name + " is full!";
-                } else {
-                    this.message = this.name + "'s " + this.stats.get(i).name + " was raised!";
-                    this.stats.get(i).value += this.stats.get(i).value * move.stat_changes.get(i);
+
+        // Check allMoves for any not yet in moveset (5th+ moves)
+        for (int i = 0; i < allMoves.size(); i++) {
+            int req = (i < moveUnlockLevels.size()) ? moveUnlockLevels.get(i) : 1;
+            if (level == req) {
+                Move m = allMoves.get(i);
+                boolean already = moveset.stream()
+                        .anyMatch(mv -> mv.name.equals(m.name));
+                if (!already) {
+                    // Replace a placeholder "---" slot if available
+                    boolean replaced = false;
+                    for (int s = 0; s < moveset.size(); s++) {
+                        if (moveset.get(s).name.equals("---")) {
+                            Move copy = new Move(m.name, m.type,
+                                    m.damage, m.stat_changes, m.maxPp);
+                            moveset.set(s, copy);
+                            replaced = true;
+                            unlocked.add(m.name);
+                            break;
+                        }
+                    }
+                    if (!replaced && moveset.size() < 4) {
+                        moveset.add(new Move(m.name, m.type,
+                                m.damage, m.stat_changes, m.maxPp));
+                        unlocked.add(m.name);
+                    }
                 }
             }
         }
+        return unlocked;
     }
 
-    private double damageCalc(Move move, Fighter user, Fighter opp) {
-        double damage = (22 * move.damage * (user.stats.get(1).value / opp.stats.get(2).value)) / 50 + 2;
-        if (user.types.contains(move.type)) damage *= 1.5;
-        if (opp.weak.contains(move.type))   damage *= 2;
-        if (opp.resist.contains(move.type)) damage *= 0.5;
-        if (opp.immune.contains(move.type)) damage = 0;
-        return damage;
-    }
-
-    public boolean isFainted() {
-        return stats.get(0).value <= 0;
-    }
-
-    // ✅ Check if all fighters in a team are fainted
-    public static boolean allFainted(ArrayList<Fighter> team, Fighter active) {
-        if (!active.isFainted()) return false;
-        for (Fighter f : team) {
-            if (!f.isFainted()) return false;
+    // ✅ Type effectiveness
+    public double getTypeMultiplier(String atkType, String defType) {
+        switch (atkType) {
+            case "Fire":
+                if (defType.equals("Grass") || defType.equals("Wind"))  return 2.0;
+                if (defType.equals("Water") || defType.equals("Earth"))  return 0.5;
+                break;
+            case "Water":
+                if (defType.equals("Fire") || defType.equals("Earth"))   return 2.0;
+                if (defType.equals("Grass") || defType.equals("Wind"))   return 0.5;
+                break;
+            case "Grass":
+                if (defType.equals("Water") || defType.equals("Earth"))  return 2.0;
+                if (defType.equals("Fire") || defType.equals("Wind"))    return 0.5;
+                break;
+            case "Shadow":
+                if (defType.equals("Spirit"))  return 2.0;
+                if (defType.equals("Normal"))  return 0.5;
+                break;
+            case "Spirit":
+                if (defType.equals("Shadow"))  return 2.0;
+                break;
+            case "Wind":
+                if (defType.equals("Earth"))   return 2.0;
+                if (defType.equals("Fire"))    return 0.5;
+                break;
+            case "Earth":
+                if (defType.equals("Fire") || defType.equals("Wind"))    return 2.0;
+                if (defType.equals("Grass") || defType.equals("Water"))  return 0.5;
+                break;
         }
-        return true;
+        return 1.0;
+    }
+
+    public void useMove(Fighter target, int moveIndex) {
+        if (moveIndex < 0 || moveIndex >= moveset.size()) return;
+        Move move = moveset.get(moveIndex);
+        if (move.isLocked()) return;
+
+        double effectiveness = 1.0;
+        if (target.types != null && move.type != null) {
+            for (Type defType : target.types) {
+                effectiveness *= getTypeMultiplier(move.type.name, defType.name);
+            }
+        }
+
+        if (effectiveness == 0) {
+            message = "It had no effect!";
+            return;
+        }
+
+        double levelBonus   = 1.0 + (level * 0.05);
+        double randomFactor = 0.85 + Math.random() * 0.15;
+        double atkStat      = stats.size() > 1 ? stats.get(1).value : 100;
+        double defStat      = target.stats.size() > 2 ? target.stats.get(2).value : 100;
+        double damage = move.damage * levelBonus * effectiveness
+                * randomFactor * (atkStat / Math.max(1, defStat));
+        damage = Math.max(1, damage);
+
+        target.stats.get(0).value = Math.max(0, target.stats.get(0).value - damage);
+
+        if (effectiveness > 1.0)      message = "It's super effective!";
+        else if (effectiveness < 1.0) message = "It's not very effective...";
+
+        if (target.stats.get(0).value <= 0) target.fainted = true;
+
+        if (move.stat_changes != null) {
+            for (int i = 0; i < move.stat_changes.size() && i + 1 < stats.size(); i++) {
+                stats.get(i + 1).value *= (1.0 + move.stat_changes.get(i));
+            }
+        }
     }
 
     public int chooseMove(Fighter target) {
-        ArrayList<Double> scores = new ArrayList<>();
-        scores.add(100.0); scores.add(100.0);
-        scores.add(100.0); scores.add(100.0);
-
-        for (int i = 0; i < 4; i++) {
-            if (this.moveset.get(i).damage == 0) {
-                for (int j = 0; j < target.stats.size(); j++) {
-                    if (this.moveset.get(i).stat_changes.get(j) < 0) {
-                        if (target.stats.get(j).value >= this.stats.get(j).value
-                                && this.stats.get(j).name.equals("Speed"))
-                            scores.set(i, scores.get(i) + 20);
-                        else if (target.stats.get(j).name.equals("Defense")
-                                && target.stats.get(j).value >= this.stats.get(1).value)
-                            scores.set(i, scores.get(i) + 20);
-                        else if (target.stats.get(j).name.equals("Attack")
-                                && target.stats.get(j).value >= this.stats.get(2).value)
-                            scores.set(i, scores.get(i) + 20);
-                    } else if (this.moveset.get(i).stat_changes.get(j) > 0) {
-                        if (target.stats.get(j).value >= this.stats.get(j).value
-                                && this.stats.get(j).name.equals("Speed"))
-                            scores.set(i, scores.get(i) + 20);
-                        else if (this.stats.get(j).name.equals("Attack")
-                                && this.stats.get(j).value <= target.stats.get(2).value)
-                            scores.set(i, scores.get(i) + 20);
-                        else if (target.stats.get(j).name.equals("Defense")
-                                && this.stats.get(j).value <= target.stats.get(1).value)
-                            scores.set(i, scores.get(i) + 20);
-                        else if (this.stats.get(j).name.equals("Health")
-                                && this.stats.get(j).value <= 50)
-                            scores.set(i, scores.get(i) + 75);
-                    }
-                }
-                if (this.stats.get(0).value <= 25)
-                    scores.set(i, scores.get(i) - 50);
-            } else {
-                if (damageCalc(this.moveset.get(i), this, target) >= target.stats.get(0).value)
-                    scores.set(i, scores.get(i) + 100);
-                if (target.weak.contains(this.moveset.get(i).type))
-                    scores.set(i, scores.get(i) + 75);
-                if (target.resist.contains(this.moveset.get(i).type))
-                    scores.set(i, scores.get(i) - 75);
-                if (target.immune.contains(this.moveset.get(i).type))
-                    scores.set(i, scores.get(i) - 100);
-            }
+        ArrayList<Integer> available = new ArrayList<>();
+        for (int i = 0; i < moveset.size(); i++) {
+            Move m = moveset.get(i);
+            if (!m.isLocked() && m.pp > 0 && m.damage > 0) available.add(i);
         }
+        if (available.isEmpty()) {
+            for (int i = 0; i < moveset.size(); i++) {
+                if (!moveset.get(i).isLocked() && moveset.get(i).pp > 0) return i;
+            }
+            return 0;
+        }
+        return available.get((int)(Math.random() * available.size()));
+    }
 
-        double tot = 0;
-        for (Double s : scores) tot += s;
-        for (int k = 0; k < scores.size(); k++)
-            scores.set(k, scores.get(k) / tot);
-
-        Random rand = new Random();
-        double roll = rand.nextDouble();
-        if (roll <= scores.get(0)) return 0;
-        else if (roll <= scores.get(0) + scores.get(1)) return 1;
-        else if (roll <= scores.get(0) + scores.get(1) + scores.get(2)) return 2;
-        else return 3;
+    public boolean isFainted() {
+        return fainted || (!stats.isEmpty() && stats.get(0).value <= 0);
     }
 }
