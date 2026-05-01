@@ -30,7 +30,7 @@ public class GameScene extends JFrame {
     private String playerGender  = "";
     private long   gameStartTime = 0L;
 
-    private int playerCoins      = 500;
+    private int playerCoins       = 500;
     private int antingAntingCount = 0;
     private static final Random rand = new Random();
 
@@ -197,6 +197,7 @@ public class GameScene extends JFrame {
         });
     }
 
+    // ✅ Return to world after any battle — restores ALL persistent state
     public void switchToWorldAt(int x, int y,
                                 ArrayList<Fighter> team,
                                 Fighter playerFighter,
@@ -236,6 +237,48 @@ public class GameScene extends JFrame {
         });
     }
 
+    // ✅ Return to world with custom map path (World 2+)
+    public void switchToWorldAtMap(int x, int y,
+                                   ArrayList<Fighter> team,
+                                   Fighter playerFighter,
+                                   int scrollCount,
+                                   int lunasCount,
+                                   int potionCount,
+                                   int updatedCoins,
+                                   long cooldownUntil,
+                                   String mapPath) {
+        playerCoins = updatedCoins;
+        Fighter worldFighter = (starterFighter != null) ? starterFighter : playerFighter;
+        team.remove(worldFighter);
+
+        if (adminMode) {
+            for (Fighter f : team) maxFighterIfNeeded(f);
+            maxFighterIfNeeded(worldFighter);
+        }
+
+        SwingUtilities.invokeLater(() -> {
+            this.getContentPane().removeAll();
+            this.setLayout(new BorderLayout());
+            WorldPanel world = new WorldPanel(
+                    this, x, y, team, worldFighter,
+                    scrollCount, lunasCount, potionCount,
+                    playerName, playerAge, playerGender,
+                    playerCoins, gameStartTime, cooldownUntil,
+                    adminMode, caveSceneShown, bossFightDone, portalVisible,
+                    mapPath);
+            world.setAntingAntingCount(antingAntingCount);
+            this.add(world, BorderLayout.CENTER);
+            this.pack();
+            this.setLocationRelativeTo(null);
+            this.revalidate();
+            this.repaint();
+            SwingUtilities.invokeLater(() -> {
+                world.requestFocusInWindow();
+                world.start();
+            });
+        });
+    }
+
     private void maxFighterIfNeeded(Fighter f) {
         if (f.level >= 99) return;
         f.level     = 99;
@@ -255,6 +298,20 @@ public class GameScene extends JFrame {
                                int lunasCount,
                                int potionCount,
                                int savedX, int savedY) {
+        this.switchToBattleOnMap(playerFighter, wildFighter, team,
+                scrollCount, lunasCount, potionCount,
+                savedX, savedY, "resources/World1.tmx");
+    }
+
+    // ✅ Battle that returns to a specific map
+    public void switchToBattleOnMap(Fighter playerFighter,
+                                    Fighter wildFighter,
+                                    ArrayList<Fighter> team,
+                                    int scrollCount,
+                                    int lunasCount,
+                                    int potionCount,
+                                    int savedX, int savedY,
+                                    String returnMapPath) {
         if (starterFighter == null) starterFighter = playerFighter;
 
         SwingUtilities.invokeLater(() -> {
@@ -273,16 +330,26 @@ public class GameScene extends JFrame {
                             switchToWorldAt(SPAWN_X, SPAWN_Y, updatedTeam, updatedFighter,
                                     updatedScrolls, updatedLunas, updatedPotions, playerCoins, 0L);
                         } else {
-                            switchToWorldAt(savedX, savedY, updatedTeam, updatedFighter,
-                                    updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldownUntil);
+                            if (returnMapPath.equals("resources/World1.tmx")) {
+                                switchToWorldAt(savedX, savedY, updatedTeam, updatedFighter,
+                                        updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldownUntil);
+                            } else {
+                                switchToWorldAtMap(savedX, savedY, updatedTeam, updatedFighter,
+                                        updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldownUntil, returnMapPath);
+                            }
                         }
                     },
 
                     (updatedFighter, updatedTeam, updatedScrolls,
                      updatedLunas, updatedPotions, blackout) -> {
                         long cooldownUntil = System.currentTimeMillis() + 5000L;
-                        switchToWorldAt(savedX, savedY, updatedTeam, updatedFighter,
-                                updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldownUntil);
+                        if (returnMapPath.equals("resources/World1.tmx")) {
+                            switchToWorldAt(savedX, savedY, updatedTeam, updatedFighter,
+                                    updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldownUntil);
+                        } else {
+                            switchToWorldAtMap(savedX, savedY, updatedTeam, updatedFighter,
+                                    updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldownUntil, returnMapPath);
+                        }
                     }
             );
 
@@ -301,6 +368,20 @@ public class GameScene extends JFrame {
                                int scrollCount, int lunasCount, int potionCount,
                                int savedX, int savedY,
                                Runnable onBossDefeated) {
+        this.switchToBossAtOnMap(playerFighter, bossFirst, bossTeamRest, playerTeam,
+                scrollCount, lunasCount, potionCount,
+                savedX, savedY, onBossDefeated, "resources/World1.tmx");
+    }
+
+    // ✅ Boss battle that returns to a specific map
+    public void switchToBossAtOnMap(Fighter playerFighter,
+                                    Fighter bossFirst,
+                                    ArrayList<Fighter> bossTeamRest,
+                                    ArrayList<Fighter> playerTeam,
+                                    int scrollCount, int lunasCount, int potionCount,
+                                    int savedX, int savedY,
+                                    Runnable onBossDefeated,
+                                    String returnMapPath) {
         if (starterFighter == null) starterFighter = playerFighter;
 
         SwingUtilities.invokeLater(() -> {
@@ -315,7 +396,7 @@ public class GameScene extends JFrame {
                      updatedLunas, updatedPotions, blackout) -> {
                         long cooldown = System.currentTimeMillis() + 5000L;
 
-                        // ✅ Boss rewards: 900 coins, +200 EXP to all creatures
+                        // ✅ Boss rewards: 900 coins, +200 EXP, +1 anting-anting
                         playerCoins += 900;
                         antingAntingCount = Math.min(4, antingAntingCount + 1);
                         int bossExp = 200;
@@ -329,21 +410,31 @@ public class GameScene extends JFrame {
                             bossFightDone = true;
                             portalVisible = true;
                             if (onBossDefeated != null) onBossDefeated.run();
-                            switchToWorldAt(savedX, savedY, updatedTeam, updatedFighter,
-                                    updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldown);
+                            if (returnMapPath.equals("resources/World1.tmx")) {
+                                switchToWorldAt(savedX, savedY, updatedTeam, updatedFighter,
+                                        updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldown);
+                            } else {
+                                switchToWorldAtMap(savedX, savedY, updatedTeam, updatedFighter,
+                                        updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldown, returnMapPath);
+                            }
                         }
                     },
 
                     (updatedFighter, updatedTeam, updatedScrolls,
                      updatedLunas, updatedPotions, blackout) -> {
                         long cooldown = System.currentTimeMillis() + 5000L;
-                        switchToWorldAt(savedX, savedY, updatedTeam, updatedFighter,
-                                updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldown);
+                        if (returnMapPath.equals("resources/World1.tmx")) {
+                            switchToWorldAt(savedX, savedY, updatedTeam, updatedFighter,
+                                    updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldown);
+                        } else {
+                            switchToWorldAtMap(savedX, savedY, updatedTeam, updatedFighter,
+                                    updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldown, returnMapPath);
+                        }
                     },
 
-                    true,             // ✅ isBossFight
-                    "The Witch Doctor", // ✅ bossName
-                    bossTeamRest      // ✅ remaining boss creatures (Ekek + Serina)
+                    true,
+                    "The Witch Doctor",
+                    bossTeamRest
             );
 
             this.add(battle, BorderLayout.CENTER);
@@ -351,6 +442,64 @@ public class GameScene extends JFrame {
             this.setLocationRelativeTo(null);
             this.revalidate();
             this.repaint();
+        });
+    }
+
+    // ✅ Switch to World 2
+    public void switchToWorld2(Fighter playerFighter,
+                               ArrayList<Fighter> team,
+                               int scrollCount,
+                               int lunasCount,
+                               int potionCount,
+                               int coins,
+                               long startTime,
+                               boolean adminMode,
+                               boolean caveSceneShown,
+                               int antingAntingCount) {
+        Fighter worldFighter = (starterFighter != null) ? starterFighter : playerFighter;
+        team.remove(worldFighter);
+
+        if (adminMode) {
+            for (Fighter f : team) maxFighterIfNeeded(f);
+            maxFighterIfNeeded(worldFighter);
+        }
+
+        this.playerCoins       = coins;
+        this.antingAntingCount = antingAntingCount;
+        this.caveSceneShown    = caveSceneShown;
+        this.adminMode         = adminMode;
+        this.gameStartTime     = startTime;
+        // ✅ Reset boss/portal for World 2
+        this.bossFightDone  = false;
+        this.portalVisible  = false;
+
+        // ✅ World 2 spawn — adjust to your World2.tmx spawn point
+        int world2SpawnX = 4205;
+        int world2SpawnY = 5125;
+
+        SwingUtilities.invokeLater(() -> {
+            this.getContentPane().removeAll();
+            this.setLayout(new BorderLayout());
+
+            WorldPanel world = new WorldPanel(
+                    this, world2SpawnX, world2SpawnY,
+                    team, worldFighter,
+                    scrollCount, lunasCount, potionCount,
+                    playerName, playerAge, playerGender,
+                    coins, startTime, 0L,
+                    adminMode, caveSceneShown, false, false,
+                    "resources/World2.tmx");
+            world.setAntingAntingCount(antingAntingCount);
+
+            this.add(world, BorderLayout.CENTER);
+            this.pack();
+            this.setLocationRelativeTo(null);
+            this.revalidate();
+            this.repaint();
+            SwingUtilities.invokeLater(() -> {
+                world.requestFocusInWindow();
+                world.start();
+            });
         });
     }
 

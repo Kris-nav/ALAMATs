@@ -102,6 +102,12 @@ public class WorldPanel extends JPanel implements Runnable {
 
     private int lastDebugTileId = -1;
 
+    // ✅ Current map path — so battles return to correct world
+    private String currentMapPath = "resources/World1.tmx";
+
+    // ✅ Town name shown on the wooden sign
+    private String currentTownName = "TOWN 1 — USA Village";
+
     // ══════════════════════════════════════════════════════════════
     // CONSTRUCTORS
     // ══════════════════════════════════════════════════════════════
@@ -113,9 +119,7 @@ public class WorldPanel extends JPanel implements Runnable {
                 Create.createPlayerStarter(),
                 3, 3, 3,
                 playerName, playerAge, playerGender,
-                500,
-                System.currentTimeMillis(),
-                0L,
+                500, System.currentTimeMillis(), 0L,
                 false, false, false, false);
     }
 
@@ -123,15 +127,9 @@ public class WorldPanel extends JPanel implements Runnable {
                       int startX, int startY,
                       ArrayList<Fighter> team,
                       Fighter playerFighter,
-                      int scrollCount,
-                      int lunasCount,
-                      int potionCount,
-                      String playerName,
-                      int playerAge,
-                      String playerGender,
-                      int playerCoins,
-                      long gameStartTime,
-                      long cooldownUntil) {
+                      int scrollCount, int lunasCount, int potionCount,
+                      String playerName, int playerAge, String playerGender,
+                      int playerCoins, long gameStartTime, long cooldownUntil) {
         this(gameScene, startX, startY, team, playerFighter,
                 scrollCount, lunasCount, potionCount,
                 playerName, playerAge, playerGender,
@@ -143,19 +141,30 @@ public class WorldPanel extends JPanel implements Runnable {
                       int startX, int startY,
                       ArrayList<Fighter> team,
                       Fighter playerFighter,
-                      int scrollCount,
-                      int lunasCount,
-                      int potionCount,
-                      String playerName,
-                      int playerAge,
-                      String playerGender,
-                      int playerCoins,
-                      long gameStartTime,
-                      long cooldownUntil,
-                      boolean adminMode,
-                      boolean caveSceneShown,
-                      boolean bossFightDone,
-                      boolean portalVisible) {
+                      int scrollCount, int lunasCount, int potionCount,
+                      String playerName, int playerAge, String playerGender,
+                      int playerCoins, long gameStartTime, long cooldownUntil,
+                      boolean adminMode, boolean caveSceneShown,
+                      boolean bossFightDone, boolean portalVisible) {
+        this(gameScene, startX, startY, team, playerFighter,
+                scrollCount, lunasCount, potionCount,
+                playerName, playerAge, playerGender,
+                playerCoins, gameStartTime, cooldownUntil,
+                adminMode, caveSceneShown, bossFightDone, portalVisible,
+                "resources/World1.tmx");
+    }
+
+    // ✅ Full constructor with custom map path
+    public WorldPanel(GameScene gameScene,
+                      int startX, int startY,
+                      ArrayList<Fighter> team,
+                      Fighter playerFighter,
+                      int scrollCount, int lunasCount, int potionCount,
+                      String playerName, int playerAge, String playerGender,
+                      int playerCoins, long gameStartTime, long cooldownUntil,
+                      boolean adminMode, boolean caveSceneShown,
+                      boolean bossFightDone, boolean portalVisible,
+                      String mapPath) {
         this.gameScene              = gameScene;
         this.playerX                = startX;
         this.playerY                = startY;
@@ -176,6 +185,14 @@ public class WorldPanel extends JPanel implements Runnable {
         this.caveSceneShown         = caveSceneShown;
         this.bossFightDone          = bossFightDone;
         this.portalVisible          = portalVisible;
+        this.currentMapPath         = mapPath;
+
+        // ✅ Set town name based on map
+        if (mapPath.contains("World2")) {
+            this.currentTownName = "TOWN 2 — New Land";
+        } else {
+            this.currentTownName = "TOWN 1 — USA Village";
+        }
 
         this.setLayout(null);
         this.setPreferredSize(new Dimension(1280, 720));
@@ -190,13 +207,13 @@ public class WorldPanel extends JPanel implements Runnable {
             System.err.println("Could not load player: " + e.getMessage());
         }
 
-        loadMap("resources/World1.tmx");
+        loadMap(mapPath);
         initSolidTiles();
     }
 
-    public int  getPlayerCoins()                  { return playerCoins; }
-    public void addCoins(int amount)              { playerCoins += amount; }
-    public void setAntingAntingCount(int count)   { this.antingAntingCount = count; }
+    public int  getPlayerCoins()                { return playerCoins; }
+    public void addCoins(int amount)            { playerCoins += amount; }
+    public void setAntingAntingCount(int count) { this.antingAntingCount = count; }
 
     private void syncStateToGameScene() {
         gameScene.syncPersistentState(adminMode, caveSceneShown, bossFightDone, portalVisible);
@@ -209,7 +226,6 @@ public class WorldPanel extends JPanel implements Runnable {
     public void showCreaturePopup(Runnable onLetsGo) {
         SwingUtilities.invokeLater(() -> {
             if (welcomePanel != null) this.remove(welcomePanel);
-
             int pw = 700, ph = 210;
             int px = (1280 - pw) / 2, py = (720 - ph) / 2;
 
@@ -234,30 +250,30 @@ public class WorldPanel extends JPanel implements Runnable {
                     g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
                     g2.setColor(new Color(170, 120, 50));
                     g2.setStroke(new BasicStroke(2.5f));
-                    g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
+                    g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 14, 14);
                 }
             };
             box.setOpaque(false);
             box.setBounds(px, py, pw, ph);
 
-            JLabel l1 = wLabel("You have been left with a creature", new Color(255, 215, 90), 18, true);
+            JLabel l1 = wLabel("You have been left with a creature", new Color(255,215,90), 18, true);
             JLabel l2 = wLabel("of your Grandpa — a Santelmo!", Color.WHITE, 15, false);
-            JLabel l3 = wLabel("Create your character to begin the adventure!", new Color(180, 180, 180), 12, false);
-            JLabel l4 = wLabel("You start with 500 coins. Good luck!", new Color(100, 200, 255), 12, false);
-            l1.setBounds(20, 16, pw - 40, 26); l2.setBounds(20, 50, pw - 40, 22);
-            l3.setBounds(20, 80, pw - 40, 20); l4.setBounds(20, 106, pw - 40, 20);
+            JLabel l3 = wLabel("Create your character to begin the adventure!", new Color(180,180,180), 12, false);
+            JLabel l4 = wLabel("You start with 500 coins. Good luck!", new Color(100,200,255), 12, false);
+            l1.setBounds(20,16,pw-40,26); l2.setBounds(20,50,pw-40,22);
+            l3.setBounds(20,80,pw-40,20); l4.setBounds(20,106,pw-40,20);
             box.add(l1); box.add(l2); box.add(l3); box.add(l4);
 
             JButton btn = new JButton("LET'S GO!");
-            btn.setBackground(new Color(40, 130, 55)); btn.setForeground(Color.WHITE);
-            btn.setFont(new Font("Monospaced", Font.BOLD, 14)); btn.setFocusPainted(false);
-            btn.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
-            btn.setBounds(pw / 2 - 100, ph - 62, 200, 44);
+            btn.setBackground(new Color(40,130,55)); btn.setForeground(Color.WHITE);
+            btn.setFont(new Font("Monospaced",Font.BOLD,14)); btn.setFocusPainted(false);
+            btn.setBorder(BorderFactory.createLineBorder(Color.WHITE,2));
+            btn.setBounds(pw/2-100, ph-62, 200, 44);
             btn.addActionListener(e -> {
-                if (welcomePanel != null) { WorldPanel.this.remove(welcomePanel); welcomePanel = null; }
-                showWelcome = false;
+                if (welcomePanel!=null) { WorldPanel.this.remove(welcomePanel); welcomePanel=null; }
+                showWelcome=false;
                 WorldPanel.this.revalidate(); WorldPanel.this.repaint();
-                if (onLetsGo != null) onLetsGo.run();
+                if (onLetsGo!=null) onLetsGo.run();
             });
             box.add(btn);
             welcomePanel.add(box);
@@ -276,8 +292,8 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     public void updateProfile(String name, int age, String gender, long startTime) {
-        this.playerName = name; this.playerAge = age;
-        this.playerGender = gender; this.gameStartTime = startTime;
+        this.playerName=name; this.playerAge=age;
+        this.playerGender=gender; this.gameStartTime=startTime;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -285,105 +301,196 @@ public class WorldPanel extends JPanel implements Runnable {
     // ══════════════════════════════════════════════════════════════
 
     private void drawHUD(Graphics2D g2) {
-        int x = 10, y = 10, w = 200, h = 186;
-
-        g2.setColor(new Color(0, 0, 0, 180));
-        g2.fillRoundRect(x, y, w, h, 12, 12);
-        g2.setColor(new Color(170, 120, 50));
+        int x=10, y=10, w=200, h=186;
+        g2.setColor(new Color(0,0,0,180));
+        g2.fillRoundRect(x,y,w,h,12,12);
+        g2.setColor(new Color(170,120,50));
         g2.setStroke(new BasicStroke(1.5f));
-        g2.drawRoundRect(x, y, w, h, 12, 12);
+        g2.drawRoundRect(x,y,w,h,12,12);
 
-        int tx = x + 10, ty = y + 18, lineH = 18;
+        int tx=x+10, ty=y+18, lineH=18;
 
-        g2.setColor(new Color(255, 215, 90));
-        g2.setFont(new Font("Monospaced", Font.BOLD, 13));
-        g2.drawString(playerName.isEmpty() ? "..." : playerName, tx, ty); ty += lineH;
+        g2.setColor(new Color(255,215,90));
+        g2.setFont(new Font("Monospaced",Font.BOLD,13));
+        g2.drawString(playerName.isEmpty()?"...":playerName, tx, ty); ty+=lineH;
 
-        g2.setColor(new Color(200, 200, 200));
-        g2.setFont(new Font("Monospaced", Font.PLAIN, 11));
-        g2.drawString(playerAge == 0 ? "..." : "Age: " + playerAge + "  |  " + playerGender, tx, ty); ty += lineH;
+        g2.setColor(new Color(200,200,200));
+        g2.setFont(new Font("Monospaced",Font.PLAIN,11));
+        g2.drawString(playerAge==0?"...":"Age: "+playerAge+"  |  "+playerGender, tx, ty); ty+=lineH;
 
-        divider(g2, tx, ty - 4, x + w - 10); ty += 4;
+        divider(g2,tx,ty-4,x+w-10); ty+=4;
 
-        g2.setColor(new Color(200, 160, 60));
-        g2.setFont(new Font("Monospaced", Font.BOLD, 11));
-        g2.drawString("Anting-Anting:", tx, ty + 4); ty += lineH;
-        for (int i = 0; i < 4; i++) {
-            boolean has = (i < antingAntingCount);
-            g2.setColor(has ? new Color(255, 200, 50) : new Color(60, 50, 30));
-            g2.fillOval(tx + i * 22, ty - 12, 16, 16);
-            g2.setColor(has ? new Color(200, 150, 20) : new Color(80, 60, 20));
+        g2.setColor(new Color(200,160,60));
+        g2.setFont(new Font("Monospaced",Font.BOLD,11));
+        g2.drawString("Anting-Anting:", tx, ty+4); ty+=lineH;
+        for (int i=0;i<4;i++) {
+            boolean has=(i<antingAntingCount);
+            g2.setColor(has?new Color(255,200,50):new Color(60,50,30));
+            g2.fillOval(tx+i*22,ty-12,16,16);
+            g2.setColor(has?new Color(200,150,20):new Color(80,60,20));
             g2.setStroke(new BasicStroke(1));
-            g2.drawOval(tx + i * 22, ty - 12, 16, 16);
+            g2.drawOval(tx+i*22,ty-12,16,16);
         }
-        g2.setColor(new Color(160, 160, 160));
-        g2.setFont(new Font("Monospaced", Font.PLAIN, 10));
-        g2.drawString(antingAntingCount + "/4", tx + 96, ty); ty += lineH;
+        g2.setColor(new Color(160,160,160));
+        g2.setFont(new Font("Monospaced",Font.PLAIN,10));
+        g2.drawString(antingAntingCount+"/4", tx+96, ty); ty+=lineH;
 
-        divider(g2, tx, ty - 6, x + w - 10); ty += 2;
+        divider(g2,tx,ty-6,x+w-10); ty+=2;
 
-        g2.setColor(new Color(20, 20, 10, 200));
-        g2.fillRoundRect(tx - 2, ty - 2, w - 18, 18, 6, 6);
-        g2.setColor(new Color(255, 215, 90));
-        g2.setFont(new Font("Monospaced", Font.BOLD, 12));
-        g2.drawString("COINS " + playerCoins, tx + 2, ty + 12); ty += lineH + 2;
+        g2.setColor(new Color(20,20,10,200));
+        g2.fillRoundRect(tx-2,ty-2,w-18,18,6,6);
+        g2.setColor(new Color(255,215,90));
+        g2.setFont(new Font("Monospaced",Font.BOLD,12));
+        g2.drawString("COINS "+playerCoins, tx+2, ty+12); ty+=lineH+2;
 
-        divider(g2, tx, ty - 4, x + w - 10); ty += 2;
+        divider(g2,tx,ty-4,x+w-10); ty+=2;
 
-        long elapsed   = System.currentTimeMillis() - gameStartTime;
-        long totalSecs = elapsed / 1000;
-        long hours     = totalSecs / 3600, minutes = (totalSecs % 3600) / 60, seconds = totalSecs % 60;
-        String timeStr = hours > 0
-                ? String.format("%02d:%02d:%02d", hours, minutes, seconds)
-                : String.format("%02d:%02d", minutes, seconds);
-        g2.setColor(new Color(20, 20, 40, 200));
-        g2.fillRoundRect(tx - 2, ty - 2, w - 18, 18, 6, 6);
-        g2.setColor(new Color(100, 200, 255));
-        g2.setFont(new Font("Monospaced", Font.BOLD, 12));
-        g2.drawString("TIME  " + timeStr, tx + 2, ty + 12); ty += lineH + 2;
+        long elapsed=System.currentTimeMillis()-gameStartTime;
+        long totalSecs=elapsed/1000;
+        long hours=totalSecs/3600, minutes=(totalSecs%3600)/60, seconds=totalSecs%60;
+        String timeStr=hours>0
+                ?String.format("%02d:%02d:%02d",hours,minutes,seconds)
+                :String.format("%02d:%02d",minutes,seconds);
+        g2.setColor(new Color(20,20,40,200));
+        g2.fillRoundRect(tx-2,ty-2,w-18,18,6,6);
+        g2.setColor(new Color(100,200,255));
+        g2.setFont(new Font("Monospaced",Font.BOLD,12));
+        g2.drawString("TIME  "+timeStr, tx+2, ty+12); ty+=lineH+2;
 
-        divider(g2, tx, ty - 4, x + w - 10); ty += 4;
+        divider(g2,tx,ty-4,x+w-10); ty+=4;
 
-        g2.setColor(new Color(160, 120, 60));
-        g2.setFont(new Font("Monospaced", Font.PLAIN, 10));
-        g2.drawString("CODE:", tx, ty + 10);
+        g2.setColor(new Color(160,120,60));
+        g2.setFont(new Font("Monospaced",Font.PLAIN,10));
+        g2.drawString("CODE:", tx, ty+10);
 
-        Color boxBorder = adminMode ? new Color(100, 255, 100)
-                : hudCodeFocused ? new Color(200, 180, 80)
-                  : new Color(80, 60, 20);
-        Color boxBg = adminMode ? new Color(20, 60, 20, 200)
-                : hudCodeFocused ? new Color(40, 30, 5, 220)
-                  : new Color(20, 20, 20, 200);
-
+        Color boxBorder=adminMode?new Color(100,255,100):hudCodeFocused?new Color(200,180,80):new Color(80,60,20);
+        Color boxBg=adminMode?new Color(20,60,20,200):hudCodeFocused?new Color(40,30,5,220):new Color(20,20,20,200);
         g2.setColor(boxBg);
-        g2.fillRoundRect(tx + 42, ty - 1, w - 56, 16, 4, 4);
+        g2.fillRoundRect(tx+42,ty-1,w-56,16,4,4);
         g2.setColor(boxBorder);
-        g2.setStroke(new BasicStroke(hudCodeFocused ? 2 : 1));
-        g2.drawRoundRect(tx + 42, ty - 1, w - 56, 16, 4, 4);
+        g2.setStroke(new BasicStroke(hudCodeFocused?2:1));
+        g2.drawRoundRect(tx+42,ty-1,w-56,16,4,4);
 
         String displayCode;
-        if (adminMode) {
-            g2.setColor(new Color(100, 255, 100));
-            displayCode = "ADMIN ON";
-        } else if (hudCodeFocused) {
-            g2.setColor(new Color(220, 190, 100));
-            long blink = System.currentTimeMillis() / 500;
-            displayCode = hudCodeInput + (blink % 2 == 0 ? "|" : " ");
-        } else if (hudCodeInput.isEmpty()) {
-            g2.setColor(new Color(100, 80, 40));
-            displayCode = "click to type";
-        } else {
-            g2.setColor(new Color(200, 160, 80));
-            displayCode = hudCodeInput;
-        }
-        g2.setFont(new Font("Monospaced", Font.PLAIN, 9));
-        g2.drawString(displayCode, tx + 46, ty + 11);
+        if (adminMode) { g2.setColor(new Color(100,255,100)); displayCode="ADMIN ON"; }
+        else if (hudCodeFocused) { g2.setColor(new Color(220,190,100)); long blink=System.currentTimeMillis()/500; displayCode=hudCodeInput+(blink%2==0?"|":" "); }
+        else if (hudCodeInput.isEmpty()) { g2.setColor(new Color(100,80,40)); displayCode="click to type"; }
+        else { g2.setColor(new Color(200,160,80)); displayCode=hudCodeInput; }
+        g2.setFont(new Font("Monospaced",Font.PLAIN,9));
+        g2.drawString(displayCode, tx+46, ty+11);
     }
 
     private void divider(Graphics2D g2, int x1, int y, int x2) {
-        g2.setColor(new Color(100, 70, 15));
+        g2.setColor(new Color(100,70,15));
         g2.setStroke(new BasicStroke(1));
-        g2.drawLine(x1, y, x2, y);
+        g2.drawLine(x1,y,x2,y);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // ✅ TOWN SIGN
+    // ══════════════════════════════════════════════════════════════
+
+    private void drawTownSign(Graphics2D g2) {
+        int sw = 280, sh = 54;
+        int sx = (1280 - sw) / 2;
+        int sy = 10;
+
+        // ✅ Bottom board (darker wood)
+        g2.setColor(new Color(101, 67, 33));
+        g2.fillRoundRect(sx, sy + sh/2, sw, sh/2 + 4, 6, 6);
+
+        // ✅ Top board (lighter wood)
+        g2.setColor(new Color(139, 90, 43));
+        g2.fillRoundRect(sx, sy, sw, sh/2 + 6, 6, 6);
+
+        // ✅ Wood grain lines
+        g2.setColor(new Color(120, 78, 36, 55));
+        g2.setStroke(new BasicStroke(1));
+        for (int i = 0; i < 6; i++) {
+            int lineY = sy + 5 + i * 8;
+            if (lineY < sy + sh - 4)
+                g2.drawLine(sx + 16, lineY, sx + sw - 16, lineY);
+        }
+
+        // ✅ Dark wood border
+        g2.setColor(new Color(60, 38, 14));
+        g2.setStroke(new BasicStroke(2.5f));
+        g2.drawRoundRect(sx, sy, sw, sh, 6, 6);
+
+        // ✅ Inner highlight border
+        g2.setColor(new Color(180, 130, 70, 100));
+        g2.setStroke(new BasicStroke(1));
+        g2.drawRoundRect(sx+4, sy+4, sw-8, sh-8, 4, 4);
+
+        // ✅ Metal bolts at 4 corners
+        int[] boltX = {sx+16, sx+sw-16, sx+16, sx+sw-16};
+        int[] boltY = {sy+10,  sy+10,   sy+sh-10, sy+sh-10};
+        for (int i = 0; i < 4; i++) {
+            g2.setColor(new Color(70, 60, 48));
+            g2.fillOval(boltX[i]-5, boltY[i]-5, 10, 10);
+            g2.setColor(new Color(120, 105, 80));
+            g2.setStroke(new BasicStroke(1));
+            g2.drawOval(boltX[i]-5, boltY[i]-5, 10, 10);
+            g2.setColor(new Color(200, 175, 130, 160));
+            g2.fillOval(boltX[i]-2, boltY[i]-3, 4, 3);
+        }
+
+        // ✅ Chain links — left side
+        drawChainLink(g2, sx + 36, sy - 2);
+        drawChainLink(g2, sx + 36, sy - 14);
+
+        // ✅ Chain links — right side
+        drawChainLink(g2, sx + sw - 36, sy - 2);
+        drawChainLink(g2, sx + sw - 36, sy - 14);
+
+        // ✅ Town name text — split on "—"
+        String[] parts = currentTownName.split("—");
+        if (parts.length == 2) {
+            String topLine    = parts[0].trim(); // e.g. "TOWN 1"
+            String bottomLine = parts[1].trim(); // e.g. "USA Village"
+
+            // Top line — small gold label
+            g2.setFont(new Font("Monospaced", Font.BOLD, 9));
+            FontMetrics sfm = g2.getFontMetrics();
+            int topX = (1280 - sfm.stringWidth(topLine)) / 2;
+            // Shadow
+            g2.setColor(new Color(40, 22, 5, 200));
+            g2.drawString(topLine, topX+1, sy+18+1);
+            // Gold text
+            g2.setColor(new Color(255, 215, 90));
+            g2.drawString(topLine, topX, sy+18);
+
+            // Bottom line — larger cream text
+            g2.setFont(new Font("Monospaced", Font.BOLD, 15));
+            FontMetrics bfm = g2.getFontMetrics();
+            int botX = (1280 - bfm.stringWidth(bottomLine)) / 2;
+            // Shadow
+            g2.setColor(new Color(40, 22, 5, 200));
+            g2.drawString(bottomLine, botX+1, sy+40+1);
+            // Cream text
+            g2.setColor(new Color(255, 242, 210));
+            g2.drawString(bottomLine, botX, sy+40);
+
+        } else {
+            // Single line fallback
+            g2.setFont(new Font("Monospaced", Font.BOLD, 13));
+            FontMetrics fm = g2.getFontMetrics();
+            int tx = (1280 - fm.stringWidth(currentTownName)) / 2;
+            g2.setColor(new Color(40, 22, 5, 200));
+            g2.drawString(currentTownName, tx+1, sy+33+1);
+            g2.setColor(new Color(255, 242, 210));
+            g2.drawString(currentTownName, tx, sy+33);
+        }
+    }
+
+    private void drawChainLink(Graphics2D g2, int cx, int cy) {
+        g2.setColor(new Color(95, 82, 60));
+        g2.setStroke(new BasicStroke(2.5f));
+        g2.drawOval(cx - 5, cy - 4, 10, 8);
+        // Shine highlight
+        g2.setColor(new Color(150, 132, 100, 160));
+        g2.setStroke(new BasicStroke(1));
+        g2.drawLine(cx - 2, cy - 1, cx + 2, cy - 1);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -392,164 +499,102 @@ public class WorldPanel extends JPanel implements Runnable {
 
     private void processHudCodeInput(char c) {
         if (adminMode) return;
-        if (c == '\b') {
-            if (!hudCodeInput.isEmpty())
-                hudCodeInput = hudCodeInput.substring(0, hudCodeInput.length() - 1);
-        } else if (c == '\n' || c == '\r') {
-            if (hudCodeInput.equals("PeksonMaster153")) activateAdminMode();
-            else hudCodeInput = "";
-            hudCodeFocused = false;
-        } else if (c == 27) {
-            hudCodeFocused = false; hudCodeInput = "";
-        } else if (c >= 32 && c < 127 && hudCodeInput.length() < 20) {
-            hudCodeInput += c;
-            if (hudCodeInput.equals("PeksonMaster153")) activateAdminMode();
-        }
+        if (c=='\b') { if (!hudCodeInput.isEmpty()) hudCodeInput=hudCodeInput.substring(0,hudCodeInput.length()-1); }
+        else if (c=='\n'||c=='\r') { if (hudCodeInput.equals("PeksonMaster153")) activateAdminMode(); else hudCodeInput=""; hudCodeFocused=false; }
+        else if (c==27) { hudCodeFocused=false; hudCodeInput=""; }
+        else if (c>=32&&c<127&&hudCodeInput.length()<20) { hudCodeInput+=c; if (hudCodeInput.equals("PeksonMaster153")) activateAdminMode(); }
     }
 
     private void activateAdminMode() {
-        adminMode      = true;
-        hudCodeInput   = "";
-        hudCodeFocused = false;
-        playerCoins    = 9999;
-        potionCount    = 9999;
-        lunasCount     = 9999;
-        scrollCount    = 9999;
+        adminMode=true; hudCodeInput=""; hudCodeFocused=false;
+        playerCoins=9999; potionCount=9999; lunasCount=9999; scrollCount=9999;
         maxCreatureLevel(playerFighter);
-        for (Fighter f : capturedTeam) maxCreatureLevel(f);
+        for (Fighter f:capturedTeam) maxCreatureLevel(f);
         syncStateToGameScene();
         showLegendaryMessage();
     }
 
     private void maxCreatureLevel(Fighter f) {
-        f.level     = 99;
-        f.exp       = 0;
-        f.expToNext = Fighter.expNeeded(99);
-        f.stats.get(0).base = 9999; f.stats.get(0).value = 9999;
-        f.stats.get(1).base = 999;  f.stats.get(1).value = 999;
-        f.stats.get(2).base = 999;  f.stats.get(2).value = 999;
-        if (f.stats.size() > 3) { f.stats.get(3).base = 999; f.stats.get(3).value = 999; }
-        for (Move m : f.moveset) { m.lockedUntilLevel = 0; m.pp = m.maxPp; }
+        f.level=99; f.exp=0; f.expToNext=Fighter.expNeeded(99);
+        f.stats.get(0).base=9999; f.stats.get(0).value=9999;
+        f.stats.get(1).base=999;  f.stats.get(1).value=999;
+        f.stats.get(2).base=999;  f.stats.get(2).value=999;
+        if (f.stats.size()>3) { f.stats.get(3).base=999; f.stats.get(3).value=999; }
+        for (Move m:f.moveset) { m.lockedUntilLevel=0; m.pp=m.maxPp; }
     }
 
     private void showLegendaryMessage() {
         JPanel overlay = new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(0, 0, 0, 200));
-                g2.fillRect(0, 0, getWidth(), getHeight());
-
-                int bw = 900, bh = 220, bx = (1280 - bw) / 2, by = (720 - bh) / 2;
-                for (int glow = 6; glow >= 0; glow--) {
-                    g2.setColor(new Color(255, 200, 0, 20 + glow * 8));
-                    g2.fillRoundRect(bx - glow*2, by - glow*2, bw + glow*4, bh + glow*4, 24, 24);
-                }
-                g2.setColor(new Color(10, 8, 2));
-                g2.fillRoundRect(bx, by, bw, bh, 18, 18);
-                g2.setColor(new Color(255, 200, 50));
-                g2.setStroke(new BasicStroke(3));
-                g2.drawRoundRect(bx, by, bw, bh, 18, 18);
-
-                g2.setColor(new Color(255, 220, 80));
-                g2.setFont(new Font("Monospaced", Font.BOLD, 20));
-                g2.drawString("★", bx + 20,      by + 40);
-                g2.drawString("★", bx + bw - 44, by + 40);
-                g2.drawString("★", bx + 20,      by + bh - 16);
-                g2.drawString("★", bx + bw - 44, by + bh - 16);
-
-                g2.setColor(new Color(255, 215, 0));
-                g2.setFont(new Font("Monospaced", Font.BOLD, 28));
-                FontMetrics fm = g2.getFontMetrics();
-                String line1 = "YOU HAVE BECOME THE";
-                g2.drawString(line1, bx + (bw - fm.stringWidth(line1)) / 2, by + 72);
-
-                g2.setFont(new Font("Monospaced", Font.BOLD, 36));
-                fm = g2.getFontMetrics();
-                String line2 = "LEGENDARY ALAMAT";
-                g2.setColor(new Color(180, 120, 0));
-                g2.drawString(line2, bx + (bw - fm.stringWidth(line2)) / 2 + 2, by + 124);
-                g2.setColor(new Color(255, 240, 80));
-                g2.drawString(line2, bx + (bw - fm.stringWidth(line2)) / 2, by + 122);
-
-                g2.setColor(new Color(180, 160, 80));
-                g2.setFont(new Font("Monospaced", Font.PLAIN, 14));
-                fm = g2.getFontMetrics();
-                String sub = "All creatures maxed to Lv.99  •  9999 Coins  •  9999 Items";
-                g2.drawString(sub, bx + (bw - fm.stringWidth(sub)) / 2, by + 162);
-
-                g2.setColor(new Color(120, 110, 60));
-                g2.setFont(new Font("Monospaced", Font.PLAIN, 11));
-                String hint = "[ Click anywhere to continue ]";
-                fm = g2.getFontMetrics();
-                g2.drawString(hint, bx + (bw - fm.stringWidth(hint)) / 2, by + bh - 16);
+                Graphics2D g2=(Graphics2D)g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(0,0,0,200)); g2.fillRect(0,0,getWidth(),getHeight());
+                int bw=900,bh=220,bx=(1280-bw)/2,by=(720-bh)/2;
+                for (int glow=6;glow>=0;glow--) { g2.setColor(new Color(255,200,0,20+glow*8)); g2.fillRoundRect(bx-glow*2,by-glow*2,bw+glow*4,bh+glow*4,24,24); }
+                g2.setColor(new Color(10,8,2)); g2.fillRoundRect(bx,by,bw,bh,18,18);
+                g2.setColor(new Color(255,200,50)); g2.setStroke(new BasicStroke(3)); g2.drawRoundRect(bx,by,bw,bh,18,18);
+                g2.setColor(new Color(255,220,80)); g2.setFont(new Font("Monospaced",Font.BOLD,20));
+                g2.drawString("★",bx+20,by+40); g2.drawString("★",bx+bw-44,by+40);
+                g2.drawString("★",bx+20,by+bh-16); g2.drawString("★",bx+bw-44,by+bh-16);
+                g2.setColor(new Color(255,215,0)); g2.setFont(new Font("Monospaced",Font.BOLD,28));
+                FontMetrics fm=g2.getFontMetrics(); String line1="YOU HAVE BECOME THE";
+                g2.drawString(line1,bx+(bw-fm.stringWidth(line1))/2,by+72);
+                g2.setFont(new Font("Monospaced",Font.BOLD,36)); fm=g2.getFontMetrics(); String line2="LEGENDARY ALAMAT";
+                g2.setColor(new Color(180,120,0)); g2.drawString(line2,bx+(bw-fm.stringWidth(line2))/2+2,by+124);
+                g2.setColor(new Color(255,240,80)); g2.drawString(line2,bx+(bw-fm.stringWidth(line2))/2,by+122);
+                g2.setColor(new Color(180,160,80)); g2.setFont(new Font("Monospaced",Font.PLAIN,14)); fm=g2.getFontMetrics();
+                String sub="All creatures maxed to Lv.99  •  9999 Coins  •  9999 Items";
+                g2.drawString(sub,bx+(bw-fm.stringWidth(sub))/2,by+162);
+                g2.setColor(new Color(120,110,60)); g2.setFont(new Font("Monospaced",Font.PLAIN,11));
+                String hint="[ Click anywhere to continue ]"; fm=g2.getFontMetrics();
+                g2.drawString(hint,bx+(bw-fm.stringWidth(hint))/2,by+bh-16);
             }
         };
-        overlay.setOpaque(false);
-        overlay.setBounds(0, 0, 1280, 720);
+        overlay.setOpaque(false); overlay.setBounds(0,0,1280,720);
         overlay.addMouseListener(new MouseAdapter() {
             @Override public void mouseClicked(MouseEvent e) {
-                WorldPanel.this.remove(overlay);
-                WorldPanel.this.revalidate();
-                WorldPanel.this.repaint();
-                requestFocusInWindow();
+                WorldPanel.this.remove(overlay); WorldPanel.this.revalidate(); WorldPanel.this.repaint(); requestFocusInWindow();
             }
         });
-        this.add(overlay);
-        this.setComponentZOrder(overlay, 0);
-        this.revalidate(); this.repaint();
+        this.add(overlay); this.setComponentZOrder(overlay,0); this.revalidate(); this.repaint();
     }
 
     // ══════════════════════════════════════════════════════════════
-    // QUEST PANEL
+    // ✅ QUEST PANEL — hidden in World 2
     // ══════════════════════════════════════════════════════════════
 
     private void drawQuestPanel(Graphics2D g2) {
+        // ✅ No quest panel in World 2
+        if (currentMapPath.contains("World2")) return;
+
         if (caveSceneShown && !bossFightDone) {
-            int qx = 1280 - 220, qy = 10, qw = 210, qh = 100;
-            g2.setColor(new Color(0, 0, 0, 180));
-            g2.fillRoundRect(qx, qy, qw, qh, 12, 12);
-            g2.setColor(new Color(200, 80, 80));
-            g2.setStroke(new BasicStroke(2));
-            g2.drawRoundRect(qx, qy, qw, qh, 12, 12);
-
-            g2.setColor(new Color(255, 100, 100));
-            g2.setFont(new Font("Monospaced", Font.BOLD, 11));
-            g2.drawString("QUEST", qx + 8, qy + 18);
-
-            int captured = 1 + capturedTeam.size();
-            boolean q1done = captured >= 6;
-            boolean q2done = playerFighter.level >= 15;
-
-            g2.setColor(q1done ? new Color(100, 255, 100) : new Color(200, 200, 200));
-            g2.setFont(new Font("Monospaced", Font.PLAIN, 10));
-            g2.drawString((q1done ? "✓ " : "• ") + "Capture 6 creatures (" + Math.min(captured, 6) + "/6)", qx + 8, qy + 38);
-
-            g2.setColor(q2done ? new Color(100, 255, 100) : new Color(200, 200, 200));
-            g2.drawString((q2done ? "✓ " : "• ") + "Reach Lv.15 (Lv." + playerFighter.level + "/15)", qx + 8, qy + 56);
-
-            if (q1done && q2done) {
-                g2.setColor(new Color(255, 200, 50));
-                g2.setFont(new Font("Monospaced", Font.BOLD, 10));
-                g2.drawString("Go to the BOSS area!", qx + 8, qy + 76);
-                g2.drawString("(east of the map)", qx + 8, qy + 90);
+            int qx=1280-220,qy=10,qw=210,qh=100;
+            g2.setColor(new Color(0,0,0,180)); g2.fillRoundRect(qx,qy,qw,qh,12,12);
+            g2.setColor(new Color(200,80,80)); g2.setStroke(new BasicStroke(2)); g2.drawRoundRect(qx,qy,qw,qh,12,12);
+            g2.setColor(new Color(255,100,100)); g2.setFont(new Font("Monospaced",Font.BOLD,11));
+            g2.drawString("QUEST",qx+8,qy+18);
+            int captured=1+capturedTeam.size();
+            boolean q1done=captured>=6, q2done=playerFighter.level>=15;
+            g2.setColor(q1done?new Color(100,255,100):new Color(200,200,200));
+            g2.setFont(new Font("Monospaced",Font.PLAIN,10));
+            g2.drawString((q1done?"✓ ":"• ")+"Capture 6 creatures ("+Math.min(captured,6)+"/6)",qx+8,qy+38);
+            g2.setColor(q2done?new Color(100,255,100):new Color(200,200,200));
+            g2.drawString((q2done?"✓ ":"• ")+"Reach Lv.15 (Lv."+playerFighter.level+"/15)",qx+8,qy+56);
+            if (q1done&&q2done) {
+                g2.setColor(new Color(255,200,50)); g2.setFont(new Font("Monospaced",Font.BOLD,10));
+                g2.drawString("Go to the BOSS area!",qx+8,qy+76);
+                g2.drawString("(east of the map)",qx+8,qy+90);
             }
         }
-
         if (portalVisible) {
-            int qx = 1280 - 220, qy = 10, qw = 210, qh = 50;
-            g2.setColor(new Color(0, 0, 0, 180));
-            g2.fillRoundRect(qx, qy, qw, qh, 12, 12);
-            g2.setColor(new Color(150, 100, 255));
-            g2.setStroke(new BasicStroke(2));
-            g2.drawRoundRect(qx, qy, qw, qh, 12, 12);
-            g2.setColor(new Color(200, 150, 255));
-            g2.setFont(new Font("Monospaced", Font.BOLD, 11));
-            g2.drawString("A portal has appeared!", qx + 8, qy + 22);
-            g2.setColor(new Color(180, 140, 220));
-            g2.setFont(new Font("Monospaced", Font.PLAIN, 10));
-            g2.drawString("Head south of boss area.", qx + 8, qy + 40);
+            int qx=1280-220,qy=10,qw=210,qh=50;
+            g2.setColor(new Color(0,0,0,180)); g2.fillRoundRect(qx,qy,qw,qh,12,12);
+            g2.setColor(new Color(150,100,255)); g2.setStroke(new BasicStroke(2)); g2.drawRoundRect(qx,qy,qw,qh,12,12);
+            g2.setColor(new Color(200,150,255)); g2.setFont(new Font("Monospaced",Font.BOLD,11));
+            g2.drawString("A portal has appeared!",qx+8,qy+22);
+            g2.setColor(new Color(180,140,220)); g2.setFont(new Font("Monospaced",Font.PLAIN,10));
+            g2.drawString("Head south of boss area.",qx+8,qy+40);
         }
     }
 
@@ -558,52 +603,43 @@ public class WorldPanel extends JPanel implements Runnable {
     // ══════════════════════════════════════════════════════════════
 
     private void showCaveScene() {
-        if (caveSceneShown || showCaveScene) return;
-        showCaveScene  = true;
-        caveSceneShown = true;
-
+        if (caveSceneShown||showCaveScene) return;
+        showCaveScene=true; caveSceneShown=true;
         SwingUtilities.invokeLater(() -> {
-            if (cavePanel != null) this.remove(cavePanel);
-
-            cavePanel = new JPanel(null) {
+            if (cavePanel!=null) this.remove(cavePanel);
+            cavePanel=new JPanel(null) {
                 @Override protected void paintComponent(Graphics g) {
                     super.paintComponent(g);
-                    Graphics2D g2 = (Graphics2D) g;
-                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(new Color(0, 0, 0, 210));
-                    g2.fillRect(0, 0, getWidth(), getHeight());
+                    Graphics2D g2=(Graphics2D)g;
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(new Color(0,0,0,210)); g2.fillRect(0,0,getWidth(),getHeight());
                 }
             };
-            cavePanel.setOpaque(false);
-            cavePanel.setBounds(0, 0, 1280, 720);
+            cavePanel.setOpaque(false); cavePanel.setBounds(0,0,1280,720);
 
-            int bw = 900, bh = 320, bx = (1280 - bw) / 2, by = (720 - bh) / 2;
-            JPanel box = new JPanel(null) {
+            // ✅ Smaller box — fits within screen with button visible
+            int bw=940, bh=360, bx=(1280-bw)/2, by=(720-bh)/2 - 20;
+
+            JPanel box=new JPanel(null) {
                 @Override protected void paintComponent(Graphics g) {
                     super.paintComponent(g);
-                    Graphics2D g2 = (Graphics2D) g;
-                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(new Color(10, 8, 18));
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
-                    g2.setColor(new Color(80, 60, 140));
-                    g2.setStroke(new BasicStroke(3));
-                    g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 16, 16);
-                    g2.setColor(new Color(40, 20, 70));
-                    g2.fillRoundRect(0, 0, getWidth(), 46, 16, 16);
-                    g2.fillRect(0, 26, getWidth(), 20);
-                    g2.setColor(new Color(160, 130, 255));
-                    g2.setFont(new Font("Monospaced", Font.BOLD, 18));
-                    FontMetrics fm = g2.getFontMetrics();
-                    String title = "Inside the Cave";
-                    g2.drawString(title, (getWidth() - fm.stringWidth(title)) / 2, 33);
-                    drawOldMan(g2, 30, 60, 80, 140);
+                    Graphics2D g2=(Graphics2D)g;
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(new Color(10,8,18)); g2.fillRoundRect(0,0,getWidth(),getHeight(),16,16);
+                    g2.setColor(new Color(80,60,140)); g2.setStroke(new BasicStroke(3));
+                    g2.drawRoundRect(0,0,getWidth()-1,getHeight()-1,16,16);
+                    g2.setColor(new Color(40,20,70)); g2.fillRoundRect(0,0,getWidth(),46,16,16);
+                    g2.fillRect(0,26,getWidth(),20);
+                    g2.setColor(new Color(160,130,255)); g2.setFont(new Font("Monospaced",Font.BOLD,18));
+                    FontMetrics fm=g2.getFontMetrics(); String title="Inside the Cave";
+                    g2.drawString(title,(getWidth()-fm.stringWidth(title))/2,33);
+                    drawOldMan(g2,16,52,68,120);
                 }
             };
-            box.setOpaque(false);
-            box.setBounds(bx, by, bw, bh);
+            box.setOpaque(false); box.setBounds(bx,by,bw,bh);
 
-            String[] lines = {
-                    "Ah... " + (playerName.isEmpty() ? "young one" : playerName) + "! I've been waiting for you.",
+            String[] lines={
+                    "Ah... "+(playerName.isEmpty()?"young one":playerName)+"! I've been waiting for you.",
                     "I am Lolo Andres — your grandfather's best friend.",
                     "He left me here to guide you when you arrived.",
                     "But I cannot let you pass just yet...",
@@ -611,98 +647,82 @@ public class WorldPanel extends JPanel implements Runnable {
                     "",
                     "Complete these tasks before facing the Albularyo boss:"
             };
-            int ly = 56;
-            for (String line : lines) {
-                JLabel lbl = new JLabel(line.isEmpty() ? " " : line);
+            int ly=52;
+            for (String line:lines) {
+                JLabel lbl=new JLabel(line.isEmpty()?" ":line);
                 lbl.setForeground(
-                        line.startsWith("Ah") || line.startsWith("I am") || line.startsWith("He left")
-                                ? new Color(255, 215, 90)
-                                : line.startsWith("But") || line.startsWith("Your")
-                                  ? new Color(255, 140, 140)
-                                  : line.startsWith("Complete")
-                                    ? new Color(100, 200, 255)
-                                    : new Color(210, 210, 210));
-                lbl.setFont(new Font("Monospaced", line.startsWith("Complete") ? Font.BOLD : Font.PLAIN, 13));
-                lbl.setBounds(130, ly, bw - 150, 20);
-                box.add(lbl);
-                ly += 22;
+                        line.startsWith("Ah")||line.startsWith("I am")||line.startsWith("He left")
+                                ?new Color(255,215,90)
+                                :line.startsWith("But")||line.startsWith("Your")
+                                 ?new Color(255,140,140)
+                                 :line.startsWith("Complete")
+                                  ?new Color(100,200,255)
+                                  :new Color(210,210,210));
+                lbl.setFont(new Font("Monospaced",line.startsWith("Complete")?Font.BOLD:Font.PLAIN,12));
+                lbl.setBounds(100,ly,bw-116,18); box.add(lbl); ly+=20;
             }
 
-            int q1count = 1 + capturedTeam.size();
-            JPanel q1 = questBox("Capture 6 creatures (have " + Math.min(q1count, 6) + "/6)", q1count >= 6, bw - 150, 36);
-            q1.setBounds(130, ly + 2, bw - 150, 36); box.add(q1); ly += 44;
-            JPanel q2 = questBox("Level your main creature to Lv.15 (now Lv." + playerFighter.level + ")", playerFighter.level >= 15, bw - 150, 36);
-            q2.setBounds(130, ly + 2, bw - 150, 36); box.add(q2);
+            int q1count=1+capturedTeam.size();
+            JPanel q1=questBox("Capture 6 creatures (have "+Math.min(q1count,6)+"/6)",q1count>=6,bw-116,30);
+            q1.setBounds(100,ly+4,bw-116,30); box.add(q1); ly+=40;
 
-            JButton closeBtn = new JButton("I understand!");
-            closeBtn.setBackground(new Color(60, 40, 110)); closeBtn.setForeground(Color.WHITE);
-            closeBtn.setFont(new Font("Monospaced", Font.BOLD, 14)); closeBtn.setFocusPainted(false);
-            closeBtn.setBorder(BorderFactory.createLineBorder(new Color(150, 100, 255), 2));
-            closeBtn.setBounds(bw / 2 - 100, bh - 56, 200, 40);
-            closeBtn.addActionListener(e -> closeCaveScene());
-            box.add(closeBtn);
+            JPanel q2=questBox("Level your main creature to Lv.15 (now Lv."+playerFighter.level+")",playerFighter.level>=15,bw-116,30);
+            q2.setBounds(100,ly+4,bw-116,30); box.add(q2); ly+=42;
 
-            cavePanel.add(box);
-            this.add(cavePanel);
-            this.setComponentZOrder(cavePanel, 0);
+            JButton closeBtn=new JButton("I understand!");
+            closeBtn.setBackground(new Color(60,40,110)); closeBtn.setForeground(Color.WHITE);
+            closeBtn.setFont(new Font("Monospaced",Font.BOLD,13)); closeBtn.setFocusPainted(false);
+            closeBtn.setBorder(BorderFactory.createLineBorder(new Color(150,100,255),2));
+            closeBtn.setBounds(bw/2-90, ly+4, 180, 34);
+            closeBtn.addActionListener(e->closeCaveScene()); box.add(closeBtn);
+
+            cavePanel.add(box); this.add(cavePanel); this.setComponentZOrder(cavePanel,0);
             this.revalidate(); this.repaint();
         });
     }
 
     private JPanel questBox(String text, boolean done, int w, int h) {
-        JPanel p = new JPanel(null) {
+        JPanel p=new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(done ? new Color(20, 50, 20) : new Color(40, 20, 20));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                g2.setColor(done ? new Color(80, 200, 80) : new Color(200, 80, 80));
-                g2.setStroke(new BasicStroke(1.5f));
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 8, 8);
+                Graphics2D g2=(Graphics2D)g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(done?new Color(20,50,20):new Color(40,20,20)); g2.fillRoundRect(0,0,getWidth(),getHeight(),8,8);
+                g2.setColor(done?new Color(80,200,80):new Color(200,80,80)); g2.setStroke(new BasicStroke(1.5f)); g2.drawRoundRect(0,0,getWidth()-1,getHeight()-1,8,8);
             }
         };
         p.setOpaque(false);
-        JLabel lbl = new JLabel((done ? "✓  " : "•  ") + text);
-        lbl.setForeground(done ? new Color(100, 255, 100) : new Color(255, 180, 180));
-        lbl.setFont(new Font("Monospaced", Font.BOLD, 12));
-        lbl.setBounds(10, 8, w - 20, 20);
-        p.add(lbl);
+        JLabel lbl=new JLabel((done?"✓  ":"•  ")+text);
+        lbl.setForeground(done?new Color(100,255,100):new Color(255,180,180));
+        lbl.setFont(new Font("Monospaced",Font.BOLD,12)); lbl.setBounds(10,8,w-20,20); p.add(lbl);
         return p;
     }
 
     private void drawOldMan(Graphics2D g2, int x, int y, int w, int h) {
-        double sx = w / 40.0, sy = h / 80.0;
-        g2.setColor(new Color(220, 220, 220));
-        g2.fillRoundRect(x+(int)(8*sx), y+(int)(2*sy), (int)(24*sx), (int)(14*sy), 6, 6);
-        g2.fillRect(x+(int)(6*sx), y+(int)(5*sy), (int)(5*sx), (int)(10*sy));
-        g2.fillRect(x+(int)(29*sx), y+(int)(5*sy), (int)(5*sx), (int)(10*sy));
-        g2.setColor(new Color(200, 200, 200));
-        g2.fillRoundRect(x+(int)(12*sx), y+(int)(24*sy), (int)(16*sx), (int)(10*sy), 6, 6);
-        g2.setColor(new Color(200, 160, 110));
-        g2.fillRoundRect(x+(int)(10*sx), y+(int)(12*sy), (int)(20*sx), (int)(18*sy), 8, 8);
-        g2.setColor(new Color(80, 60, 40)); g2.setStroke(new BasicStroke(1.5f));
-        g2.drawLine(x+(int)(14*sx), y+(int)(17*sy), x+(int)(18*sx), y+(int)(17*sy));
-        g2.drawLine(x+(int)(22*sx), y+(int)(17*sy), x+(int)(26*sx), y+(int)(17*sy));
-        g2.setColor(new Color(170, 120, 80)); g2.setStroke(new BasicStroke(1));
-        g2.drawLine(x+(int)(13*sx), y+(int)(22*sy), x+(int)(16*sx), y+(int)(21*sy));
-        g2.drawLine(x+(int)(24*sx), y+(int)(21*sy), x+(int)(27*sx), y+(int)(22*sy));
-        g2.setColor(new Color(80, 50, 130));
-        g2.fillRoundRect(x+(int)(8*sx), y+(int)(34*sy), (int)(24*sx), (int)(28*sy), 6, 6);
-        g2.setColor(new Color(120, 80, 30)); g2.setStroke(new BasicStroke(3));
-        g2.drawLine(x+(int)(36*sx), y+(int)(10*sy), x+(int)(36*sx), y+(int)(70*sy));
-        g2.setColor(new Color(180, 150, 50));
-        g2.fillOval(x+(int)(32*sx), y+(int)(6*sy), (int)(8*sx), (int)(8*sy));
-        g2.setColor(new Color(60, 40, 100));
-        g2.fillRect(x+(int)(8*sx), y+(int)(60*sy), (int)(10*sx), (int)(16*sy));
-        g2.fillRect(x+(int)(22*sx), y+(int)(60*sy), (int)(10*sx), (int)(16*sy));
+        double sx=w/40.0,sy=h/80.0;
+        g2.setColor(new Color(220,220,220)); g2.fillRoundRect(x+(int)(8*sx),y+(int)(2*sy),(int)(24*sx),(int)(14*sy),6,6);
+        g2.fillRect(x+(int)(6*sx),y+(int)(5*sy),(int)(5*sx),(int)(10*sy)); g2.fillRect(x+(int)(29*sx),y+(int)(5*sy),(int)(5*sx),(int)(10*sy));
+        g2.setColor(new Color(200,200,200)); g2.fillRoundRect(x+(int)(12*sx),y+(int)(24*sy),(int)(16*sx),(int)(10*sy),6,6);
+        g2.setColor(new Color(200,160,110)); g2.fillRoundRect(x+(int)(10*sx),y+(int)(12*sy),(int)(20*sx),(int)(18*sy),8,8);
+        g2.setColor(new Color(80,60,40)); g2.setStroke(new BasicStroke(1.5f));
+        g2.drawLine(x+(int)(14*sx),y+(int)(17*sy),x+(int)(18*sx),y+(int)(17*sy));
+        g2.drawLine(x+(int)(22*sx),y+(int)(17*sy),x+(int)(26*sx),y+(int)(17*sy));
+        g2.setColor(new Color(170,120,80)); g2.setStroke(new BasicStroke(1));
+        g2.drawLine(x+(int)(13*sx),y+(int)(22*sy),x+(int)(16*sx),y+(int)(21*sy));
+        g2.drawLine(x+(int)(24*sx),y+(int)(21*sy),x+(int)(27*sx),y+(int)(22*sy));
+        g2.setColor(new Color(80,50,130)); g2.fillRoundRect(x+(int)(8*sx),y+(int)(34*sy),(int)(24*sx),(int)(28*sy),6,6);
+        g2.setColor(new Color(120,80,30)); g2.setStroke(new BasicStroke(3));
+        g2.drawLine(x+(int)(36*sx),y+(int)(10*sy),x+(int)(36*sx),y+(int)(70*sy));
+        g2.setColor(new Color(180,150,50)); g2.fillOval(x+(int)(32*sx),y+(int)(6*sy),(int)(8*sx),(int)(8*sy));
+        g2.setColor(new Color(60,40,100));
+        g2.fillRect(x+(int)(8*sx),y+(int)(60*sy),(int)(10*sx),(int)(16*sy));
+        g2.fillRect(x+(int)(22*sx),y+(int)(60*sy),(int)(10*sx),(int)(16*sy));
     }
 
     private void closeCaveScene() {
-        showCaveScene = false;
-        if (cavePanel != null) { this.remove(cavePanel); cavePanel = null; }
-        this.revalidate(); this.repaint();
-        requestFocusInWindow();
+        showCaveScene=false;
+        if (cavePanel!=null) { this.remove(cavePanel); cavePanel=null; }
+        this.revalidate(); this.repaint(); requestFocusInWindow();
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -710,272 +730,281 @@ public class WorldPanel extends JPanel implements Runnable {
     // ══════════════════════════════════════════════════════════════
 
     private void triggerBossFight() {
-        if (bossTriggered || bossFightDone) return;
-        int captured = 1 + capturedTeam.size();
-        if (captured < 6 || playerFighter.level < 15) {
-            showFloatingMessage("Your creatures are not ready! Complete the quest first.", new Color(255, 100, 100));
-            return;
+        if (bossTriggered||bossFightDone) return;
+        int captured=1+capturedTeam.size();
+        if (captured<6||playerFighter.level<15) {
+            showFloatingMessage("Your creatures are not ready! Complete the quest first.",new Color(255,100,100)); return;
         }
-        bossTriggered = true;
-        inBattle      = true;
-        int savedX = playerX, savedY = playerY;
-
-        Fighter bossKapre  = Create.createKapre(15);
-        Fighter bossEkek   = Create.createEkek(15);
-        Fighter bossSerina = createSerina(15);
-        ArrayList<Fighter> bossTeam = new ArrayList<>();
+        bossTriggered=true; inBattle=true;
+        int savedX=playerX, savedY=playerY;
+        Fighter bossKapre=Create.createKapre(15);
+        Fighter bossEkek=Create.createEkek(15);
+        Fighter bossSerina=createSerina(15);
+        ArrayList<Fighter> bossTeam=new ArrayList<>();
         bossTeam.add(bossEkek); bossTeam.add(bossSerina);
-
         syncStateToGameScene();
-        SwingUtilities.invokeLater(() ->
-                gameScene.switchToBossAt(playerFighter, bossKapre, bossTeam,
-                        capturedTeam, scrollCount, lunasCount, potionCount,
-                        savedX, savedY, () -> {
-                            bossFightDone = true;
-                            portalVisible = true;
-                            bossTriggered = false;
-                        })
+        SwingUtilities.invokeLater(()->
+                gameScene.switchToBossAt(playerFighter,bossKapre,bossTeam,
+                        capturedTeam,scrollCount,lunasCount,potionCount,
+                        savedX,savedY,()->{bossFightDone=true;portalVisible=true;bossTriggered=false;})
         );
     }
 
     private Fighter createSerina(int level) {
-        Type SPIRIT = new Type("Spirit", 0xAADDFF);
-        Type WATER  = new Type("Water",  0x4488FF);
-        ArrayList<Type> types = new ArrayList<>(Arrays.asList(SPIRIT, WATER));
-        ArrayList<Move> allMoves = new ArrayList<>(Arrays.asList(
-                new Move("Spirit Wave", SPIRIT, 55, new ArrayList<>(), 10),
-                new Move("Aqua Dance",  WATER,  60, new ArrayList<>(), 10),
-                new Move("Soul Surge",  SPIRIT, 80, new ArrayList<>(), 8),
-                new Move("Tidal Crash", WATER,  90, new ArrayList<>(), 6)
+        Type SPIRIT=new Type("Spirit",0xAADDFF); Type WATER=new Type("Water",0x4488FF);
+        ArrayList<Type> types=new ArrayList<>(Arrays.asList(SPIRIT,WATER));
+        ArrayList<Move> allMoves=new ArrayList<>(Arrays.asList(
+                new Move("Spirit Wave",SPIRIT,55,new ArrayList<>(),10),
+                new Move("Aqua Dance",WATER,60,new ArrayList<>(),10),
+                new Move("Soul Surge",SPIRIT,80,new ArrayList<>(),8),
+                new Move("Tidal Crash",WATER,90,new ArrayList<>(),6)
         ));
-        ArrayList<Integer> unlockLevels = new ArrayList<>(Arrays.asList(1, 1, 8, 13));
-        ArrayList<Stat> stats = new ArrayList<>();
-        int extra = level - 5;
-        stats.add(new Stat("HP",  180 + extra * 10));
-        stats.add(new Stat("ATK",  88 + extra * 4));
-        stats.add(new Stat("DEF",  78 + extra * 3));
-        stats.add(new Stat("SPD", 100 + extra * 3));
-        return new Fighter("Serina", "/images/Serina.png", "/images/Serina.png",
-                types, stats, allMoves, unlockLevels, level);
+        ArrayList<Integer> unlockLevels=new ArrayList<>(Arrays.asList(1,1,8,13));
+        ArrayList<Stat> stats=new ArrayList<>();
+        int extra=level-5;
+        stats.add(new Stat("HP",180+extra*10)); stats.add(new Stat("ATK",88+extra*4));
+        stats.add(new Stat("DEF",78+extra*3));  stats.add(new Stat("SPD",100+extra*3));
+        return new Fighter("Serina","/images/Serina.png","/images/Serina.png",types,stats,allMoves,unlockLevels,level);
     }
 
     // ══════════════════════════════════════════════════════════════
-    // PORTAL
+    // PORTAL — small animated arrow indicator
     // ══════════════════════════════════════════════════════════════
 
     private void drawPortal(Graphics2D g2) {
         if (!portalVisible) return;
-        // ✅ Portal at col=39 row=36
-        int drawX = 39 * TILE_DISPLAY_SIZE - cameraX;
-        int drawY = 36 * TILE_DISPLAY_SIZE - cameraY;
-        int pw = TILE_DISPLAY_SIZE, ph = TILE_DISPLAY_SIZE * 2;
-        if (drawX + pw < 0 || drawX > 1280 || drawY + ph < 0 || drawY > 720) return;
 
-        long  t     = System.currentTimeMillis();
-        float pulse = (float)(Math.sin(t / 400.0) * 0.3 + 0.7);
+        int tileX = 39 * TILE_DISPLAY_SIZE - cameraX;
+        int tileY = 36 * TILE_DISPLAY_SIZE - cameraY;
+        if (tileX + TILE_DISPLAY_SIZE < 0 || tileX > 1280 ||
+                tileY + TILE_DISPLAY_SIZE < 0 || tileY > 720) return;
 
-        g2.setColor(new Color(100, 50, 200, (int)(80 * pulse)));
-        g2.fillOval(drawX - 20, drawY - 10, pw + 40, ph + 20);
-        g2.setColor(new Color(60, 20, 150));
-        g2.fillOval(drawX, drawY, pw, ph);
-        g2.setColor(new Color(150, 100, 255, (int)(180 * pulse)));
-        g2.fillOval(drawX + 10, drawY + 15, pw - 20, ph - 30);
-        g2.setColor(new Color(200, 160, 255, 150));
-        g2.setStroke(new BasicStroke(2));
-        for (int i = 0; i < 3; i++) {
-            int angle = (int)((t / 10 + i * 120) % 360);
-            double rad = Math.toRadians(angle);
-            int cx = drawX + pw / 2, cy = drawY + ph / 2;
-            int sx = (int)(cx + (pw / 2 - 8) * Math.cos(rad));
-            int sy = (int)(cy + (ph / 2 - 10) * Math.sin(rad));
-            g2.drawLine(cx, cy, sx, sy);
-        }
+        long t = System.currentTimeMillis();
+        float bounce = (float)(Math.sin(t / 300.0) * 5);
+        float pulse  = (float)(Math.sin(t / 400.0) * 0.3 + 0.7);
+
+        int cx = tileX + TILE_DISPLAY_SIZE / 2;
+        int cy = tileY + TILE_DISPLAY_SIZE / 2 + (int)bounce;
+
+        // Glow circle
+        g2.setColor(new Color(100, 50, 220, (int)(70 * pulse)));
+        g2.fillOval(cx - 22, cy - 22, 44, 44);
+
+        // Arrow pointing right
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setColor(new Color(220, 180, 255));
-        g2.setFont(new Font("Monospaced", Font.BOLD, 11));
-        g2.drawString("PORTAL", drawX + pw / 2 - 26, drawY - 6);
+        g2.setStroke(new BasicStroke(3, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.drawLine(cx - 10, cy, cx + 8, cy);
+        int[] arrowX = { cx + 8, cx + 1, cx + 1 };
+        int[] arrowY = { cy,     cy - 7, cy + 7 };
+        g2.setColor(new Color(200, 160, 255));
+        g2.fillPolygon(arrowX, arrowY, 3);
+
+        // Sparkles
+        g2.setColor(new Color(180, 130, 255, (int)(200 * pulse)));
+        int sparkR = 18;
+        for (int i = 0; i < 4; i++) {
+            double angle = Math.toRadians((t / 6 + i * 90) % 360);
+            int sx2 = cx + (int)(sparkR * Math.cos(angle));
+            int sy2 = cy + (int)(sparkR * Math.sin(angle));
+            g2.fillOval(sx2 - 3, sy2 - 3, 6, 6);
+        }
+
+        // "WORLD 2 ▶" label
+        g2.setColor(new Color(220, 180, 255));
+        g2.setFont(new Font("Monospaced", Font.BOLD, 10));
+        FontMetrics fm = g2.getFontMetrics();
+        String label = "WORLD 2 ▶";
+        g2.drawString(label, cx - fm.stringWidth(label)/2, tileY - 4 + (int)bounce);
+    }
+
+    // ✅ Portal cinematic — World 2 transition
+    private void enterPortalToWorld2() {
+        JPanel overlay = new JPanel(null) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2=(Graphics2D)g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(10,0,25)); g2.fillRect(0,0,getWidth(),getHeight());
+                long t=System.currentTimeMillis();
+                for (int ring=5;ring>=0;ring--) {
+                    float pulse=(float)(Math.sin((t/300.0)+ring*0.8)*0.3+0.7);
+                    int alpha=(int)(40*pulse), margin=ring*30;
+                    g2.setColor(new Color(120,60,255,alpha));
+                    g2.fillOval(margin,margin,getWidth()-margin*2,getHeight()-margin*2);
+                }
+                int cx=getWidth()/2, cy=getHeight()/2-80;
+                float pulse2=(float)(Math.sin(t/500.0)*0.25+0.75);
+                g2.setColor(new Color(80,30,180,(int)(120*pulse2))); g2.fillOval(cx-80,cy-80,160,160);
+                g2.setColor(new Color(160,100,255,(int)(200*pulse2))); g2.fillOval(cx-50,cy-50,100,100);
+                g2.setColor(new Color(220,180,255)); g2.fillOval(cx-20,cy-20,40,40);
+                g2.setColor(new Color(200,150,255)); g2.setFont(new Font("Monospaced",Font.BOLD,22));
+                FontMetrics fm=g2.getFontMetrics(); String portalTitle="✦ ENTERING THE PORTAL ✦";
+                g2.drawString(portalTitle,cx-fm.stringWidth(portalTitle)/2,cy+100);
+                int bw=900,bh=170,bx=cx-bw/2,by=cy+120;
+                g2.setColor(new Color(15,5,35,230)); g2.fillRoundRect(bx,by,bw,bh,16,16);
+                g2.setColor(new Color(120,70,220)); g2.setStroke(new BasicStroke(2)); g2.drawRoundRect(bx,by,bw,bh,16,16);
+                String[] lines={
+                        "You are now traveling to the next town...",
+                        "You'll face tons of new creatures",
+                        "and defeat the next Albularyo!",
+                        "Collect all 4 Anting-Anting to save your Grandpa!"
+                };
+                Color[] lineColors={new Color(220,200,255),new Color(180,160,255),new Color(255,160,160),new Color(255,215,90)};
+                int lineY=by+30;
+                for (int i=0;i<lines.length;i++) {
+                    g2.setColor(lineColors[i]);
+                    g2.setFont(new Font("Monospaced",i==0?Font.BOLD:Font.PLAIN,i==0?16:14));
+                    FontMetrics lfm=g2.getFontMetrics();
+                    g2.drawString(lines[i],cx-lfm.stringWidth(lines[i])/2,lineY); lineY+=26;
+                }
+                g2.setColor(new Color(140,110,200)); g2.setFont(new Font("Monospaced",Font.PLAIN,11));
+                String hint="[ Click anywhere to enter World 2 ]"; FontMetrics hfm=g2.getFontMetrics();
+                g2.drawString(hint,cx-hfm.stringWidth(hint)/2,by+bh-14);
+            }
+        };
+        overlay.setOpaque(true); overlay.setBackground(new Color(10,0,25)); overlay.setBounds(0,0,1280,720);
+        Timer animTimer=new Timer(16,e->overlay.repaint());
+        animTimer.start();
+        overlay.addMouseListener(new MouseAdapter() {
+            @Override public void mouseClicked(MouseEvent e) {
+                animTimer.stop();
+                WorldPanel.this.remove(overlay);
+                WorldPanel.this.revalidate(); WorldPanel.this.repaint();
+                gameScene.switchToWorld2(
+                        playerFighter, capturedTeam,
+                        scrollCount, lunasCount, potionCount,
+                        playerCoins, gameStartTime,
+                        adminMode, caveSceneShown, antingAntingCount
+                );
+            }
+        });
+        this.add(overlay); this.setComponentZOrder(overlay,0);
+        this.revalidate(); this.repaint();
     }
 
     // ══════════════════════════════════════════════════════════════
     // SHOP
     // ══════════════════════════════════════════════════════════════
 
-    private void openShop() {
-        if (showShop) return;
-        showShop = true;
-        buildShopOverlay();
-    }
+    private void openShop() { if (showShop) return; showShop=true; buildShopOverlay(); }
 
     private void closeShop() {
-        showShop = false;
-        if (shopOverlay != null) { this.remove(shopOverlay); shopOverlay = null; this.revalidate(); this.repaint(); }
+        showShop=false;
+        if (shopOverlay!=null) { this.remove(shopOverlay); shopOverlay=null; this.revalidate(); this.repaint(); }
         requestFocusInWindow();
     }
 
     private void buildShopOverlay() {
-        if (shopOverlay != null) { this.remove(shopOverlay); shopOverlay = null; }
-        int screenW = 1280, screenH = 720, winW = 720, winH = 520;
-        int winX = (screenW - winW) / 2, winY = (screenH - winH) / 2;
-        final int fwinX = winX, fwinW = winW, fwinH = winH, fwinY = winY;
-
-        shopOverlay = new JPanel(null) {
+        if (shopOverlay!=null) { this.remove(shopOverlay); shopOverlay=null; }
+        int screenW=1280,screenH=720,winW=720,winH=520;
+        int winX=(screenW-winW)/2,winY=(screenH-winH)/2;
+        final int fwinX=winX,fwinW=winW,fwinH=winH,fwinY=winY;
+        shopOverlay=new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(0, 0, 0, 190)); g2.fillRect(0, 0, getWidth(), getHeight());
-                g2.setColor(new Color(18, 12, 5)); g2.fillRoundRect(fwinX, fwinY, fwinW, fwinH, 18, 18);
-                g2.setColor(new Color(170, 120, 50)); g2.setStroke(new BasicStroke(3));
-                g2.drawRoundRect(fwinX, fwinY, fwinW, fwinH, 18, 18);
-                g2.setColor(new Color(70, 44, 8)); g2.fillRoundRect(fwinX, fwinY, fwinW, 48, 18, 18);
-                g2.fillRect(fwinX, fwinY + 28, fwinW, 20);
-                g2.setColor(new Color(255, 215, 90)); g2.setFont(new Font("Monospaced", Font.BOLD, 20));
-                FontMetrics fm = g2.getFontMetrics();
-                g2.drawString("SHOP", fwinX + (fwinW - fm.stringWidth("SHOP")) / 2, fwinY + 33);
-                g2.setFont(new Font("Monospaced", Font.BOLD, 13));
-                g2.drawString("Coins: " + playerCoins, fwinX + fwinW - 150, fwinY + 33);
-                g2.setColor(new Color(170, 120, 50)); g2.setStroke(new BasicStroke(1.5f));
-                g2.drawLine(fwinX + 16, fwinY + 50, fwinX + fwinW - 16, fwinY + 50);
-                g2.setColor(new Color(120, 120, 120)); g2.setFont(new Font("Monospaced", Font.PLAIN, 11));
-                FontMetrics hfm = g2.getFontMetrics();
-                String hint = "Press [E] to close";
-                g2.drawString(hint, fwinX + (fwinW - hfm.stringWidth(hint)) / 2, fwinY + fwinH - 12);
-                drawJoshua(g2, fwinX + 14, fwinY + 58, 110, 200);
+                Graphics2D g2=(Graphics2D)g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(0,0,0,190)); g2.fillRect(0,0,getWidth(),getHeight());
+                g2.setColor(new Color(18,12,5)); g2.fillRoundRect(fwinX,fwinY,fwinW,fwinH,18,18);
+                g2.setColor(new Color(170,120,50)); g2.setStroke(new BasicStroke(3)); g2.drawRoundRect(fwinX,fwinY,fwinW,fwinH,18,18);
+                g2.setColor(new Color(70,44,8)); g2.fillRoundRect(fwinX,fwinY,fwinW,48,18,18); g2.fillRect(fwinX,fwinY+28,fwinW,20);
+                g2.setColor(new Color(255,215,90)); g2.setFont(new Font("Monospaced",Font.BOLD,20));
+                FontMetrics fm=g2.getFontMetrics(); g2.drawString("SHOP",fwinX+(fwinW-fm.stringWidth("SHOP"))/2,fwinY+33);
+                g2.setFont(new Font("Monospaced",Font.BOLD,13)); g2.drawString("Coins: "+playerCoins,fwinX+fwinW-150,fwinY+33);
+                g2.setColor(new Color(170,120,50)); g2.setStroke(new BasicStroke(1.5f)); g2.drawLine(fwinX+16,fwinY+50,fwinX+fwinW-16,fwinY+50);
+                g2.setColor(new Color(120,120,120)); g2.setFont(new Font("Monospaced",Font.PLAIN,11));
+                FontMetrics hfm=g2.getFontMetrics(); String hint="Press [E] to close";
+                g2.drawString(hint,fwinX+(fwinW-hfm.stringWidth(hint))/2,fwinY+fwinH-12);
+                drawJoshua(g2,fwinX+14,fwinY+58,110,200);
             }
         };
-        shopOverlay.setOpaque(false);
-        shopOverlay.setBounds(0, 0, screenW, screenH);
+        shopOverlay.setOpaque(false); shopOverlay.setBounds(0,0,screenW,screenH);
 
-        int bubbleX = winX + 130, bubbleY = winY + 60, bubbleW = winW - 150, bubbleH = 60;
-        JPanel bubble = new JPanel(null) {
+        int bubbleX=winX+130,bubbleY=winY+60,bubbleW=winW-150,bubbleH=60;
+        JPanel bubble=new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(255, 250, 230)); g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
-                g2.setColor(new Color(170, 120, 50)); g2.setStroke(new BasicStroke(2));
-                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 14, 14);
-                int[] tx = {0, -14, 0}; int[] ty = {getHeight()/2-8, getHeight()/2, getHeight()/2+8};
-                g2.setColor(new Color(255, 250, 230)); g2.fillPolygon(tx, ty, 3);
-                g2.setColor(new Color(170, 120, 50)); g2.setStroke(new BasicStroke(2));
-                g2.drawLine(0, getHeight()/2-8, -14, getHeight()/2);
-                g2.drawLine(-14, getHeight()/2, 0, getHeight()/2+8);
+                Graphics2D g2=(Graphics2D)g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(255,250,230)); g2.fillRoundRect(0,0,getWidth(),getHeight(),14,14);
+                g2.setColor(new Color(170,120,50)); g2.setStroke(new BasicStroke(2)); g2.drawRoundRect(0,0,getWidth()-1,getHeight()-1,14,14);
+                int[] tx={0,-14,0}; int[] ty={getHeight()/2-8,getHeight()/2,getHeight()/2+8};
+                g2.setColor(new Color(255,250,230)); g2.fillPolygon(tx,ty,3);
+                g2.setColor(new Color(170,120,50)); g2.setStroke(new BasicStroke(2));
+                g2.drawLine(0,getHeight()/2-8,-14,getHeight()/2); g2.drawLine(-14,getHeight()/2,0,getHeight()/2+8);
             }
         };
-        bubble.setOpaque(false); bubble.setBounds(bubbleX, bubbleY, bubbleW, bubbleH);
-        JLabel bl1 = new JLabel("Hi! I'm Joshua, your local merchant!");
-        bl1.setForeground(new Color(60, 30, 5)); bl1.setFont(new Font("Monospaced", Font.BOLD, 13));
-        bl1.setBounds(12, 8, bubbleW - 20, 20); bubble.add(bl1);
-        JLabel bl2 = new JLabel("What would you like to buy today?");
-        bl2.setForeground(new Color(100, 60, 10)); bl2.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        bl2.setBounds(12, 30, bubbleW - 20, 18); bubble.add(bl2);
+        bubble.setOpaque(false); bubble.setBounds(bubbleX,bubbleY,bubbleW,bubbleH);
+        JLabel bl1=new JLabel("Hi! I'm Joshua, your local merchant!");
+        bl1.setForeground(new Color(60,30,5)); bl1.setFont(new Font("Monospaced",Font.BOLD,13));
+        bl1.setBounds(12,8,bubbleW-20,20); bubble.add(bl1);
+        JLabel bl2=new JLabel("What would you like to buy today?");
+        bl2.setForeground(new Color(100,60,10)); bl2.setFont(new Font("Monospaced",Font.PLAIN,12));
+        bl2.setBounds(12,30,bubbleW-20,18); bubble.add(bl2);
         shopOverlay.add(bubble);
 
-        int itemY = winY + 132, itemX = winX + 24, itemW = winW - 48, rowH = 60, gap = 8;
-        Object[][] items = {
-                {"Scroll", "Capture wild creatures in battle.", 30, "scroll"},
-                {"Lunas",  "Restore 5 PP to one creature move.", 25, "lunas"},
-                {"Potion", "Restore 30 HP to one creature.", 25, "potion"},
-        };
-        for (Object[] item : items) {
-            shopOverlay.add(buildShopRow(itemX, itemY, itemW, rowH,
-                    (String)item[0], (String)item[1], (int)item[2], (String)item[3]));
-            itemY += rowH + gap;
-        }
+        int itemY=winY+132,itemX=winX+24,itemW=winW-48,rowH=60,gap=8;
+        Object[][] items={{"Scroll","Capture wild creatures in battle.",30,"scroll"},{"Lunas","Restore 5 PP to one creature move.",25,"lunas"},{"Potion","Restore 30 HP to one creature.",25,"potion"}};
+        for (Object[] item:items) { shopOverlay.add(buildShopRow(itemX,itemY,itemW,rowH,(String)item[0],(String)item[1],(int)item[2],(String)item[3])); itemY+=rowH+gap; }
 
-        JButton leaveBtn = new JButton("LEAVE SHOP");
-        leaveBtn.setBackground(new Color(100, 50, 10)); leaveBtn.setForeground(Color.WHITE);
-        leaveBtn.setFont(new Font("Monospaced", Font.BOLD, 14)); leaveBtn.setFocusPainted(false);
-        leaveBtn.setBorder(BorderFactory.createLineBorder(new Color(170, 120, 50), 2));
-        leaveBtn.setBounds(winX + winW / 2 - 100, winY + winH - 58, 200, 36);
-        leaveBtn.addActionListener(e -> closeShop());
-        shopOverlay.add(leaveBtn);
-
-        this.add(shopOverlay); this.setComponentZOrder(shopOverlay, 0);
-        this.revalidate(); this.repaint();
+        JButton leaveBtn=new JButton("LEAVE SHOP");
+        leaveBtn.setBackground(new Color(100,50,10)); leaveBtn.setForeground(Color.WHITE);
+        leaveBtn.setFont(new Font("Monospaced",Font.BOLD,14)); leaveBtn.setFocusPainted(false);
+        leaveBtn.setBorder(BorderFactory.createLineBorder(new Color(170,120,50),2));
+        leaveBtn.setBounds(winX+winW/2-100,winY+winH-58,200,36);
+        leaveBtn.addActionListener(e->closeShop()); shopOverlay.add(leaveBtn);
+        this.add(shopOverlay); this.setComponentZOrder(shopOverlay,0); this.revalidate(); this.repaint();
     }
 
     private void drawJoshua(Graphics2D g2, int x, int y, int w, int h) {
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        double sx = w / 40.0, sy = h / 80.0;
-        g2.setColor(new Color(60, 35, 10));
-        g2.fillRoundRect(x+(int)(10*sx),y+(int)(2*sy),(int)(20*sx),(int)(12*sy),6,6);
-        g2.fillRect(x+(int)(8*sx),y+(int)(5*sy),(int)(4*sx),(int)(8*sy));
-        g2.fillRect(x+(int)(28*sx),y+(int)(5*sy),(int)(4*sx),(int)(8*sy));
-        g2.setColor(new Color(230,185,140));
-        g2.fillRoundRect(x+(int)(10*sx),y+(int)(10*sy),(int)(20*sx),(int)(18*sy),8,8);
-        g2.setColor(new Color(50,80,160));
-        g2.fillOval(x+(int)(13*sx),y+(int)(15*sy),(int)(4*sx),(int)(4*sy));
-        g2.fillOval(x+(int)(23*sx),y+(int)(15*sy),(int)(4*sx),(int)(4*sy));
-        g2.setColor(Color.BLACK);
-        g2.fillOval(x+(int)(14*sx),y+(int)(16*sy),(int)(2*sx),(int)(2*sy));
-        g2.fillOval(x+(int)(24*sx),y+(int)(16*sy),(int)(2*sx),(int)(2*sy));
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+        double sx=w/40.0,sy=h/80.0;
+        g2.setColor(new Color(60,35,10)); g2.fillRoundRect(x+(int)(10*sx),y+(int)(2*sy),(int)(20*sx),(int)(12*sy),6,6);
+        g2.fillRect(x+(int)(8*sx),y+(int)(5*sy),(int)(4*sx),(int)(8*sy)); g2.fillRect(x+(int)(28*sx),y+(int)(5*sy),(int)(4*sx),(int)(8*sy));
+        g2.setColor(new Color(230,185,140)); g2.fillRoundRect(x+(int)(10*sx),y+(int)(10*sy),(int)(20*sx),(int)(18*sy),8,8);
+        g2.setColor(new Color(50,80,160)); g2.fillOval(x+(int)(13*sx),y+(int)(15*sy),(int)(4*sx),(int)(4*sy)); g2.fillOval(x+(int)(23*sx),y+(int)(15*sy),(int)(4*sx),(int)(4*sy));
+        g2.setColor(Color.BLACK); g2.fillOval(x+(int)(14*sx),y+(int)(16*sy),(int)(2*sx),(int)(2*sy)); g2.fillOval(x+(int)(24*sx),y+(int)(16*sy),(int)(2*sx),(int)(2*sy));
         g2.setColor(new Color(60,35,10)); g2.setStroke(new BasicStroke(1.5f));
-        g2.drawLine(x+(int)(12*sx),y+(int)(13*sy),x+(int)(18*sx),y+(int)(12*sy));
-        g2.drawLine(x+(int)(22*sx),y+(int)(12*sy),x+(int)(28*sx),y+(int)(13*sy));
-        g2.setColor(new Color(180,100,80)); g2.setStroke(new BasicStroke(1.5f));
-        g2.drawArc(x+(int)(15*sx),y+(int)(22*sy),(int)(10*sx),(int)(5*sy),200,140);
-        g2.setColor(new Color(200,150,110));
-        g2.fillOval(x+(int)(18*sx),y+(int)(19*sy),(int)(4*sx),(int)(3*sy));
-        g2.setColor(new Color(230,185,140));
-        g2.fillRect(x+(int)(16*sx),y+(int)(27*sy),(int)(8*sx),(int)(5*sy));
-        g2.setColor(new Color(60,110,60));
-        g2.fillRoundRect(x+(int)(8*sx),y+(int)(32*sy),(int)(24*sx),(int)(26*sy),6,6);
-        g2.setColor(new Color(220,200,160));
-        g2.fillRect(x+(int)(15*sx),y+(int)(32*sy),(int)(10*sx),(int)(10*sy));
+        g2.drawLine(x+(int)(12*sx),y+(int)(13*sy),x+(int)(18*sx),y+(int)(12*sy)); g2.drawLine(x+(int)(22*sx),y+(int)(12*sy),x+(int)(28*sx),y+(int)(13*sy));
+        g2.setColor(new Color(180,100,80)); g2.setStroke(new BasicStroke(1.5f)); g2.drawArc(x+(int)(15*sx),y+(int)(22*sy),(int)(10*sx),(int)(5*sy),200,140);
+        g2.setColor(new Color(200,150,110)); g2.fillOval(x+(int)(18*sx),y+(int)(19*sy),(int)(4*sx),(int)(3*sy));
+        g2.setColor(new Color(230,185,140)); g2.fillRect(x+(int)(16*sx),y+(int)(27*sy),(int)(8*sx),(int)(5*sy));
+        g2.setColor(new Color(60,110,60)); g2.fillRoundRect(x+(int)(8*sx),y+(int)(32*sy),(int)(24*sx),(int)(26*sy),6,6);
+        g2.setColor(new Color(220,200,160)); g2.fillRect(x+(int)(15*sx),y+(int)(32*sy),(int)(10*sx),(int)(10*sy));
         g2.setColor(new Color(80,50,10));
-        int[] lx={x+(int)(15*sx),x+(int)(10*sx),x+(int)(15*sx)};
-        int[] ly={y+(int)(32*sy),y+(int)(38*sy),y+(int)(42*sy)};
-        g2.fillPolygon(lx,ly,3);
-        int[] rx2={x+(int)(25*sx),x+(int)(30*sx),x+(int)(25*sx)};
-        int[] ry2={y+(int)(32*sy),y+(int)(38*sy),y+(int)(42*sy)};
-        g2.fillPolygon(rx2,ry2,3);
-        g2.setColor(new Color(60,110,60));
-        g2.fillRoundRect(x+(int)(2*sx),y+(int)(32*sy),(int)(8*sx),(int)(22*sy),4,4);
-        g2.fillRoundRect(x+(int)(30*sx),y+(int)(30*sy),(int)(8*sx),(int)(22*sy),4,4);
-        g2.setColor(new Color(230,185,140));
-        g2.fillOval(x+(int)(3*sx),y+(int)(52*sy),(int)(7*sx),(int)(6*sy));
-        g2.fillOval(x+(int)(30*sx),y+(int)(50*sy),(int)(7*sx),(int)(6*sy));
-        g2.setColor(new Color(180,140,40));
-        g2.fillOval(x+(int)(31*sx),y+(int)(44*sy),(int)(9*sx),(int)(11*sy));
-        g2.setColor(new Color(220,180,60));
-        g2.fillOval(x+(int)(33*sx),y+(int)(42*sy),(int)(5*sx),(int)(5*sy));
-        g2.setColor(new Color(50,60,100));
-        g2.fillRect(x+(int)(8*sx),y+(int)(57*sy),(int)(10*sx),(int)(18*sy));
-        g2.fillRect(x+(int)(22*sx),y+(int)(57*sy),(int)(10*sx),(int)(18*sy));
-        g2.setColor(new Color(60,40,20));
-        g2.fillRoundRect(x+(int)(6*sx),y+(int)(72*sy),(int)(13*sx),(int)(7*sy),4,4);
-        g2.fillRoundRect(x+(int)(21*sx),y+(int)(72*sy),(int)(13*sx),(int)(7*sy),4,4);
+        int[] lx={x+(int)(15*sx),x+(int)(10*sx),x+(int)(15*sx)}; int[] ly={y+(int)(32*sy),y+(int)(38*sy),y+(int)(42*sy)}; g2.fillPolygon(lx,ly,3);
+        int[] rx2={x+(int)(25*sx),x+(int)(30*sx),x+(int)(25*sx)}; int[] ry2={y+(int)(32*sy),y+(int)(38*sy),y+(int)(42*sy)}; g2.fillPolygon(rx2,ry2,3);
+        g2.setColor(new Color(60,110,60)); g2.fillRoundRect(x+(int)(2*sx),y+(int)(32*sy),(int)(8*sx),(int)(22*sy),4,4); g2.fillRoundRect(x+(int)(30*sx),y+(int)(30*sy),(int)(8*sx),(int)(22*sy),4,4);
+        g2.setColor(new Color(230,185,140)); g2.fillOval(x+(int)(3*sx),y+(int)(52*sy),(int)(7*sx),(int)(6*sy)); g2.fillOval(x+(int)(30*sx),y+(int)(50*sy),(int)(7*sx),(int)(6*sy));
+        g2.setColor(new Color(180,140,40)); g2.fillOval(x+(int)(31*sx),y+(int)(44*sy),(int)(9*sx),(int)(11*sy));
+        g2.setColor(new Color(220,180,60)); g2.fillOval(x+(int)(33*sx),y+(int)(42*sy),(int)(5*sx),(int)(5*sy));
+        g2.setColor(new Color(50,60,100)); g2.fillRect(x+(int)(8*sx),y+(int)(57*sy),(int)(10*sx),(int)(18*sy)); g2.fillRect(x+(int)(22*sx),y+(int)(57*sy),(int)(10*sx),(int)(18*sy));
+        g2.setColor(new Color(60,40,20)); g2.fillRoundRect(x+(int)(6*sx),y+(int)(72*sy),(int)(13*sx),(int)(7*sy),4,4); g2.fillRoundRect(x+(int)(21*sx),y+(int)(72*sy),(int)(13*sx),(int)(7*sy),4,4);
     }
 
     private JPanel buildShopRow(int x, int y, int w, int h, String name, String desc, int cost, String key) {
-        JPanel row = new JPanel(null) {
+        JPanel row=new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Graphics2D g2=(Graphics2D)g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(new Color(30,20,6)); g2.fillRoundRect(0,0,getWidth(),getHeight(),8,8);
-                g2.setColor(new Color(100,70,20)); g2.setStroke(new BasicStroke(1));
-                g2.drawRoundRect(0,0,getWidth()-1,getHeight()-1,8,8);
+                g2.setColor(new Color(100,70,20)); g2.setStroke(new BasicStroke(1)); g2.drawRoundRect(0,0,getWidth()-1,getHeight()-1,8,8);
             }
         };
-        row.setOpaque(false); row.setBounds(x, y, w, h);
-        JLabel nl = new JLabel(name); nl.setForeground(Color.WHITE);
-        nl.setFont(new Font("Monospaced",Font.BOLD,14)); nl.setBounds(12,6,220,20); row.add(nl);
-        JLabel dl = new JLabel(desc); dl.setForeground(new Color(160,160,160));
-        dl.setFont(new Font("Monospaced",Font.PLAIN,11)); dl.setBounds(12,28,w-230,16); row.add(dl);
-        JLabel cl = new JLabel(cost+" Coins"); cl.setForeground(new Color(255,215,90));
-        cl.setFont(new Font("Monospaced",Font.BOLD,12)); cl.setBounds(w-230,6,100,20); row.add(cl);
-        JLabel sl = new JLabel("Have: "+getCurrentItemCount(key)); sl.setForeground(new Color(140,200,140));
-        sl.setFont(new Font("Monospaced",Font.PLAIN,11)); sl.setBounds(w-230,28,100,16); row.add(sl);
-        JButton buy1 = shopBtn("Buy x1", new Color(40,110,40)); buy1.setBounds(w-120,8,104,20);
-        buy1.addActionListener(e -> { buyItem(key,cost,1); buildShopOverlay(); }); row.add(buy1);
-        JButton buy5 = shopBtn("Buy x5", new Color(30,80,30)); buy5.setBounds(w-120,32,104,20);
-        buy5.addActionListener(e -> { buyItem(key,cost,5); buildShopOverlay(); }); row.add(buy5);
+        row.setOpaque(false); row.setBounds(x,y,w,h);
+        JLabel nl=new JLabel(name); nl.setForeground(Color.WHITE); nl.setFont(new Font("Monospaced",Font.BOLD,14)); nl.setBounds(12,6,220,20); row.add(nl);
+        JLabel dl=new JLabel(desc); dl.setForeground(new Color(160,160,160)); dl.setFont(new Font("Monospaced",Font.PLAIN,11)); dl.setBounds(12,28,w-230,16); row.add(dl);
+        JLabel cl=new JLabel(cost+" Coins"); cl.setForeground(new Color(255,215,90)); cl.setFont(new Font("Monospaced",Font.BOLD,12)); cl.setBounds(w-230,6,100,20); row.add(cl);
+        JLabel sl=new JLabel("Have: "+getCurrentItemCount(key)); sl.setForeground(new Color(140,200,140)); sl.setFont(new Font("Monospaced",Font.PLAIN,11)); sl.setBounds(w-230,28,100,16); row.add(sl);
+        JButton buy1=shopBtn("Buy x1",new Color(40,110,40)); buy1.setBounds(w-120,8,104,20); buy1.addActionListener(e->{buyItem(key,cost,1);buildShopOverlay();}); row.add(buy1);
+        JButton buy5=shopBtn("Buy x5",new Color(30,80,30)); buy5.setBounds(w-120,32,104,20); buy5.addActionListener(e->{buyItem(key,cost,5);buildShopOverlay();}); row.add(buy5);
         return row;
     }
 
     private JButton shopBtn(String text, Color bg) {
-        JButton btn = new JButton(text); btn.setBackground(bg); btn.setForeground(Color.WHITE);
+        JButton btn=new JButton(text); btn.setBackground(bg); btn.setForeground(Color.WHITE);
         btn.setFont(new Font("Monospaced",Font.BOLD,11)); btn.setFocusPainted(false);
         btn.setBorder(BorderFactory.createLineBorder(new Color(60,160,60),1)); return btn;
     }
@@ -985,26 +1014,22 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     private void buyItem(String key, int cost, int qty) {
-        int total = cost * qty;
-        if (playerCoins < total) { showFloatingMessage("Not enough Coins! Need " + total, new Color(220,60,60)); return; }
-        playerCoins -= total;
-        switch (key) { case "scroll": scrollCount += qty; break; case "lunas": lunasCount += qty; break; case "potion": potionCount += qty; break; }
-        showFloatingMessage("Bought " + qty + "x " + key + " for " + total + " coins!", new Color(100,255,150));
+        int total=cost*qty;
+        if (playerCoins<total) { showFloatingMessage("Not enough Coins! Need "+total,new Color(220,60,60)); return; }
+        playerCoins-=total;
+        switch (key) { case "scroll": scrollCount+=qty; break; case "lunas": lunasCount+=qty; break; case "potion": potionCount+=qty; break; }
+        showFloatingMessage("Bought "+qty+"x "+key+" for "+total+" coins!",new Color(100,255,150));
     }
 
     // ══════════════════════════════════════════════════════════════
     // HEAL
     // ══════════════════════════════════════════════════════════════
 
-    private void healAllCreatures() {
-        healFighter(playerFighter);
-        for (Fighter f : capturedTeam) healFighter(f);
-    }
+    private void healAllCreatures() { healFighter(playerFighter); for (Fighter f:capturedTeam) healFighter(f); }
 
     private void healFighter(Fighter f) {
-        f.stats.get(0).value = f.stats.get(0).base;
-        f.fainted = false;
-        for (Move m : f.moveset) { if (!m.isLocked()) m.pp = m.maxPp; }
+        f.stats.get(0).value=f.stats.get(0).base; f.fainted=false;
+        for (Move m:f.moveset) { if (!m.isLocked()) m.pp=m.maxPp; }
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -1012,22 +1037,13 @@ public class WorldPanel extends JPanel implements Runnable {
     // ══════════════════════════════════════════════════════════════
 
     private void showFloatingMessage(String message, Color color) {
-        JPanel overlay = new JPanel(null) {
-            @Override protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                g.setColor(new Color(0,0,0,150)); g.fillRect(0,0,getWidth(),getHeight());
-            }
-        };
+        JPanel overlay=new JPanel(null) { @Override protected void paintComponent(Graphics g) { super.paintComponent(g); g.setColor(new Color(0,0,0,150)); g.fillRect(0,0,getWidth(),getHeight()); }};
         overlay.setOpaque(false); overlay.setBounds(0,0,1280,720);
         int rw=560,rh=80,rx=(1280-rw)/2,ry=(720-rh)/2;
-        JPanel box = new JPanel(new BorderLayout());
-        box.setBackground(new Color(12,25,12)); box.setBorder(BorderFactory.createLineBorder(color,2));
-        box.setBounds(rx,ry,rw,rh);
-        JLabel lbl = new JLabel(message,SwingConstants.CENTER); lbl.setForeground(color);
-        lbl.setFont(new Font("Monospaced",Font.BOLD,13)); box.add(lbl,BorderLayout.CENTER);
-        overlay.add(box);
-        this.add(overlay); this.setComponentZOrder(overlay,0); this.revalidate(); this.repaint();
-        new Timer(2000, e -> { ((Timer)e.getSource()).stop(); this.remove(overlay); this.revalidate(); this.repaint(); }).start();
+        JPanel box=new JPanel(new BorderLayout()); box.setBackground(new Color(12,25,12)); box.setBorder(BorderFactory.createLineBorder(color,2)); box.setBounds(rx,ry,rw,rh);
+        JLabel lbl=new JLabel(message,SwingConstants.CENTER); lbl.setForeground(color); lbl.setFont(new Font("Monospaced",Font.BOLD,13)); box.add(lbl,BorderLayout.CENTER);
+        overlay.add(box); this.add(overlay); this.setComponentZOrder(overlay,0); this.revalidate(); this.repaint();
+        new Timer(2000,e->{((Timer)e.getSource()).stop();this.remove(overlay);this.revalidate();this.repaint();}).start();
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -1049,24 +1065,19 @@ public class WorldPanel extends JPanel implements Runnable {
         if (bagOverlay!=null) { this.remove(bagOverlay); bagOverlay=null; }
         int screenW=1280,screenH=720,winW=860,winH=520;
         int winX=(screenW-winW)/2,winY=(screenH-winH)/2;
-        bagOverlay = new JPanel(null) {
+        bagOverlay=new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2=(Graphics2D)g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(new Color(0,0,0,190)); g2.fillRect(0,0,getWidth(),getHeight());
                 g2.setColor(new Color(22,14,6)); g2.fillRoundRect(winX,winY,winW,winH,18,18);
-                g2.setColor(new Color(170,120,50)); g2.setStroke(new BasicStroke(3));
-                g2.drawRoundRect(winX,winY,winW,winH,18,18);
-                g2.setColor(new Color(70,44,8)); g2.fillRoundRect(winX,winY,winW,48,18,18);
-                g2.fillRect(winX,winY+28,winW,20);
+                g2.setColor(new Color(170,120,50)); g2.setStroke(new BasicStroke(3)); g2.drawRoundRect(winX,winY,winW,winH,18,18);
+                g2.setColor(new Color(70,44,8)); g2.fillRoundRect(winX,winY,winW,48,18,18); g2.fillRect(winX,winY+28,winW,20);
                 g2.setColor(new Color(255,215,90)); g2.setFont(new Font("Monospaced",Font.BOLD,22));
-                FontMetrics fm=g2.getFontMetrics();
-                g2.drawString("BAG",winX+(winW-fm.stringWidth("BAG"))/2,winY+34);
-                g2.setFont(new Font("Monospaced",Font.BOLD,12));
-                g2.drawString("Coins: "+playerCoins,winX+winW-140,winY+34);
-                g2.setColor(new Color(170,120,50)); g2.setStroke(new BasicStroke(1.5f));
-                g2.drawLine(winX+16,winY+50,winX+winW-16,winY+50);
+                FontMetrics fm=g2.getFontMetrics(); g2.drawString("BAG",winX+(winW-fm.stringWidth("BAG"))/2,winY+34);
+                g2.setFont(new Font("Monospaced",Font.BOLD,12)); g2.drawString("Coins: "+playerCoins,winX+winW-140,winY+34);
+                g2.setColor(new Color(170,120,50)); g2.setStroke(new BasicStroke(1.5f)); g2.drawLine(winX+16,winY+50,winX+winW-16,winY+50);
                 g2.setColor(new Color(120,120,120)); g2.setFont(new Font("Monospaced",Font.PLAIN,12));
                 FontMetrics hfm=g2.getFontMetrics(); String hint="Press [B] to close";
                 g2.drawString(hint,winX+(winW-hfm.stringWidth(hint))/2,winY+winH-14);
@@ -1079,17 +1090,14 @@ public class WorldPanel extends JPanel implements Runnable {
         this.add(bagOverlay); this.setComponentZOrder(bagOverlay,0); this.revalidate(); this.repaint();
     }
 
-    private void buildMainBagScreen(JPanel overlay,int winX,int winY,int winW,int winH) {
+    private void buildMainBagScreen(JPanel overlay, int winX, int winY, int winW, int winH) {
         int leftX=winX+20,leftY=winY+60,leftW=360,rowH=46,gap=5;
-
-        // ✅ Items section header painted directly
-        JPanel leftPanel = new JPanel(null) {
+        JPanel leftPanel=new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2=(Graphics2D)g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(200,155,60)); g2.setFont(new Font("Monospaced",Font.BOLD,12));
-                g2.drawString("ITEMS",0,14);
+                g2.setColor(new Color(200,155,60)); g2.setFont(new Font("Monospaced",Font.BOLD,12)); g2.drawString("ITEMS",0,14);
                 g2.setColor(new Color(100,70,15)); g2.setStroke(new BasicStroke(1)); g2.drawLine(0,18,leftW,18);
             }
         };
@@ -1101,86 +1109,66 @@ public class WorldPanel extends JPanel implements Runnable {
         for (int i=0;i<3;i++) {
             final int idx=i; boolean sel=(selectedIndex==i&&selectedCreatureIndex==-1);
             JButton btn=styledItemBtn(iNames[i],iCounts[i],iColors[i],sel); btn.setBounds(0,iy,leftW,rowH);
-            btn.addActionListener(e->{ selectedIndex=(selectedIndex==idx&&selectedCreatureIndex==-1)?-1:idx; selectedCreatureIndex=-1; buildBagOverlay("main"); });
+            btn.addActionListener(e->{selectedIndex=(selectedIndex==idx&&selectedCreatureIndex==-1)?-1:idx;selectedCreatureIndex=-1;buildBagOverlay("main");});
             leftPanel.add(btn); iy+=rowH+gap;
         }
 
-        // ✅ Team section — scrollable
-        int teamHeaderY = leftY + iy + 16;
-        JLabel teamHeader = new JLabel("TEAM  (" + (capturedTeam.size()+1) + "/6)");
-        teamHeader.setForeground(new Color(200,155,60));
-        teamHeader.setFont(new Font("Monospaced",Font.BOLD,12));
-        teamHeader.setBounds(leftX, teamHeaderY, leftW, 16);
-        overlay.add(teamHeader);
+        int teamHeaderY=leftY+iy+16;
+        JLabel teamHeader=new JLabel("TEAM  ("+(capturedTeam.size()+1)+"/6)");
+        teamHeader.setForeground(new Color(200,155,60)); teamHeader.setFont(new Font("Monospaced",Font.BOLD,12));
+        teamHeader.setBounds(leftX,teamHeaderY,leftW,16); overlay.add(teamHeader);
 
-        // Scrollable team list
         ArrayList<Fighter> fullTeam=new ArrayList<>(); fullTeam.add(playerFighter); fullTeam.addAll(capturedTeam);
-
-        JPanel teamListPanel = new JPanel();
-        teamListPanel.setOpaque(false);
-        teamListPanel.setLayout(new BoxLayout(teamListPanel, BoxLayout.Y_AXIS));
+        JPanel teamListPanel=new JPanel(); teamListPanel.setOpaque(false); teamListPanel.setLayout(new BoxLayout(teamListPanel,BoxLayout.Y_AXIS));
 
         for (int i=0;i<fullTeam.size();i++) {
             final int ci=i; Fighter f=fullTeam.get(i);
-            boolean isActive=(f==playerFighter); boolean isSel=(selectedCreatureIndex==i);
+            boolean isActive=(f==playerFighter),isSel=(selectedCreatureIndex==i);
             int hp=(int)Math.max(0,f.stats.get(0).value),maxHp=(int)f.stats.get(0).base;
             float ratio=maxHp>0?(float)hp/maxHp:0;
             Color barColor=ratio>0.5f?new Color(60,200,60):ratio>0.25f?new Color(220,180,0):new Color(200,50,50);
             Color borderColor=isSel?new Color(100,180,255):isActive?new Color(200,160,60):new Color(70,50,10);
             Color bgColor=isSel?new Color(20,40,70):isActive?new Color(60,40,10):new Color(28,18,5);
-
-            JPanel row = new JPanel(null) {
+            JPanel row=new JPanel(null) {
                 @Override protected void paintComponent(Graphics g) {
                     super.paintComponent(g);
                     Graphics2D g2=(Graphics2D)g;
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
                     g2.setColor(bgColor); g2.fillRoundRect(0,0,getWidth(),getHeight(),8,8);
-                    g2.setColor(borderColor); g2.setStroke(new BasicStroke(isSel||isActive?2f:1f));
-                    g2.drawRoundRect(0,0,getWidth()-1,getHeight()-1,8,8);
+                    g2.setColor(borderColor); g2.setStroke(new BasicStroke(isSel||isActive?2f:1f)); g2.drawRoundRect(0,0,getWidth()-1,getHeight()-1,8,8);
                     if (isActive) { g2.setColor(new Color(255,215,90)); g2.setFont(new Font("Monospaced",Font.BOLD,13)); g2.drawString("★",8,20); }
                     g2.setColor(isSel?new Color(100,200,255):isActive?new Color(255,215,90):Color.WHITE);
                     g2.setFont(new Font("Monospaced",Font.BOLD,12));
-                    g2.drawString(f.name+" Lv."+f.level, isActive?26:10, 20);
+                    g2.drawString(f.name+" Lv."+f.level,isActive?26:10,20);
                     g2.setColor(new Color(170,170,170)); g2.setFont(new Font("Monospaced",Font.PLAIN,10));
-                    g2.drawString(hp+"/"+maxHp, getWidth()-70, 14);
+                    g2.drawString(hp+"/"+maxHp,getWidth()-70,14);
                     int bx=10,by=24,bw=getWidth()-80,bh=6;
                     g2.setColor(new Color(50,50,50)); g2.fillRoundRect(bx,by,bw,bh,3,3);
                     g2.setColor(barColor); g2.fillRoundRect(bx,by,(int)(bw*ratio),bh,3,3);
                 }
             };
-            row.setOpaque(false);
-            row.setPreferredSize(new Dimension(leftW, 38));
-            row.setMaximumSize(new Dimension(leftW, 38));
+            row.setOpaque(false); row.setPreferredSize(new Dimension(leftW,38)); row.setMaximumSize(new Dimension(leftW,38));
             row.setCursor(new Cursor(Cursor.HAND_CURSOR));
             row.addMouseListener(new MouseAdapter() {
-                @Override public void mouseClicked(MouseEvent e) {
-                    selectedCreatureIndex=(selectedCreatureIndex==ci)?-1:ci;
-                    selectedIndex=-1; buildBagOverlay("main");
-                }
+                @Override public void mouseClicked(MouseEvent e) { selectedCreatureIndex=(selectedCreatureIndex==ci)?-1:ci; selectedIndex=-1; buildBagOverlay("main"); }
             });
-            teamListPanel.add(row);
-            teamListPanel.add(Box.createVerticalStrut(4));
+            teamListPanel.add(row); teamListPanel.add(Box.createVerticalStrut(4));
         }
 
-        // ✅ Wrap team in scrollpane
-        JScrollPane teamScroll = new JScrollPane(teamListPanel);
-        teamScroll.setOpaque(false); teamScroll.getViewport().setOpaque(false);
-        teamScroll.setBorder(null);
+        JScrollPane teamScroll=new JScrollPane(teamListPanel);
+        teamScroll.setOpaque(false); teamScroll.getViewport().setOpaque(false); teamScroll.setBorder(null);
         teamScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         teamScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        int teamScrollY = teamHeaderY + 20;
-        int teamScrollH = winY + winH - 60 - teamScrollY;
-        teamScroll.setBounds(leftX, teamScrollY, leftW, teamScrollH);
-        overlay.add(teamScroll);
+        int teamScrollY=teamHeaderY+20, teamScrollH=winY+winH-60-teamScrollY;
+        teamScroll.setBounds(leftX,teamScrollY,leftW,teamScrollH); overlay.add(teamScroll);
 
         int rightX=winX+leftW+48,rightW=winW-leftW-68,rightY=winY+60,rightH=winH-80;
-        JPanel rightPanel = new JPanel(null) {
+        JPanel rightPanel=new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2=(Graphics2D)g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(new Color(15,10,4)); g2.fillRoundRect(0,0,getWidth(),getHeight(),12,12);
-                g2.setColor(new Color(100,70,20)); g2.setStroke(new BasicStroke(1.5f));
-                g2.drawRoundRect(0,0,getWidth(),getHeight(),12,12);
+                g2.setColor(new Color(100,70,20)); g2.setStroke(new BasicStroke(1.5f)); g2.drawRoundRect(0,0,getWidth(),getHeight(),12,12);
             }
         };
         rightPanel.setOpaque(false); rightPanel.setBounds(rightX,rightY,rightW,rightH); overlay.add(rightPanel);
@@ -1189,7 +1177,7 @@ public class WorldPanel extends JPanel implements Runnable {
         else buildDetailContent(rightPanel,rightW,rightH);
     }
 
-    private void buildDetailContent(JPanel panel,int w,int h) {
+    private void buildDetailContent(JPanel panel, int w, int h) {
         panel.removeAll();
         if (selectedIndex==-1) {
             JLabel hint=new JLabel("<html><center><font color='gray'>Click an item or<br>creature to see details</font></center></html>",SwingConstants.CENTER);
@@ -1198,14 +1186,9 @@ public class WorldPanel extends JPanel implements Runnable {
         String[] names={"SCROLL","LUNAS","POTION"};
         Color[] colors={new Color(140,70,200),new Color(60,180,100),new Color(60,140,220)};
         int[] counts={scrollCount,lunasCount,potionCount};
-        String[][] descs={
-                {"Qty: x"+scrollCount,"Used to capture wild","creatures in battle.","Catch rate up when HP is low."},
-                {"Qty: x"+lunasCount,"Restores 5 PP to one move.","Use when moves run out of PP."},
-                {"Qty: x"+potionCount,"Restores 30 HP to a creature.","Cannot revive fainted creatures."}
-        };
+        String[][] descs={{"Qty: x"+scrollCount,"Used to capture wild","creatures in battle.","Catch rate up when HP is low."},{"Qty: x"+lunasCount,"Restores 5 PP to one move.","Use when moves run out of PP."},{"Qty: x"+potionCount,"Restores 30 HP to a creature.","Cannot revive fainted creatures."}};
         int pad=16,cy=16;
-        JLabel tl=new JLabel(names[selectedIndex]); tl.setForeground(colors[selectedIndex]);
-        tl.setFont(new Font("Monospaced",Font.BOLD,18)); tl.setBounds(pad,cy,w-pad*2,24); panel.add(tl); cy+=30;
+        JLabel tl=new JLabel(names[selectedIndex]); tl.setForeground(colors[selectedIndex]); tl.setFont(new Font("Monospaced",Font.BOLD,18)); tl.setBounds(pad,cy,w-pad*2,24); panel.add(tl); cy+=30;
         for (String line:descs[selectedIndex]) {
             JLabel lbl=new JLabel(line); lbl.setForeground(line.startsWith("Qty")?Color.WHITE:new Color(180,180,180));
             lbl.setFont(new Font("Monospaced",Font.PLAIN,13)); lbl.setBounds(pad,cy,w-pad*2,18); panel.add(lbl); cy+=18;
@@ -1225,7 +1208,7 @@ public class WorldPanel extends JPanel implements Runnable {
         panel.add(useBtn); panel.revalidate(); panel.repaint();
     }
 
-    private void buildCreatureDetailContent(JPanel panel,int w,int h,Fighter f) {
+    private void buildCreatureDetailContent(JPanel panel, int w, int h, Fighter f) {
         panel.removeAll();
         int pad=16,cy=14;
         boolean isActive=(f==playerFighter);
@@ -1261,11 +1244,9 @@ public class WorldPanel extends JPanel implements Runnable {
         panel.revalidate(); panel.repaint();
     }
 
-    private int addStatBar(JPanel panel,int pad,int cy,int w,String label,int value,int max,Color barColor) {
-        JLabel lbl=new JLabel(label); lbl.setForeground(new Color(160,160,160));
-        lbl.setFont(new Font("Monospaced",Font.BOLD,11)); lbl.setBounds(pad,cy,36,14); panel.add(lbl);
-        JLabel vl=new JLabel(String.valueOf(value)); vl.setForeground(Color.WHITE);
-        vl.setFont(new Font("Monospaced",Font.PLAIN,11)); vl.setBounds(pad+38,cy,34,14); panel.add(vl);
+    private int addStatBar(JPanel panel, int pad, int cy, int w, String label, int value, int max, Color barColor) {
+        JLabel lbl=new JLabel(label); lbl.setForeground(new Color(160,160,160)); lbl.setFont(new Font("Monospaced",Font.BOLD,11)); lbl.setBounds(pad,cy,36,14); panel.add(lbl);
+        JLabel vl=new JLabel(String.valueOf(value)); vl.setForeground(Color.WHITE); vl.setFont(new Font("Monospaced",Font.PLAIN,11)); vl.setBounds(pad+38,cy,34,14); panel.add(vl);
         int barX=pad+76,barW=w-pad*2-76;
         JPanel bg=new JPanel(null); bg.setBackground(new Color(40,40,40)); bg.setBounds(barX,cy+2,barW,10); panel.add(bg);
         float ratio=max>0?Math.min(1f,(float)value/max):0;
@@ -1273,7 +1254,7 @@ public class WorldPanel extends JPanel implements Runnable {
         return cy+20;
     }
 
-    private void buildCreatureSelectScreen(JPanel overlay,int winX,int winY,int winW,int winH) {
+    private void buildCreatureSelectScreen(JPanel overlay, int winX, int winY, int winW, int winH) {
         String itemName=pendingItemUse.equals("lunas")?"Lunas":"Potion";
         Color itemColor=pendingItemUse.equals("lunas")?new Color(60,180,100):new Color(60,140,220);
         int cx=winX+24,cy=winY+62,cw=winW-48;
@@ -1292,25 +1273,22 @@ public class WorldPanel extends JPanel implements Runnable {
             btn.setFont(new Font("Monospaced",Font.BOLD,12)); btn.setFocusPainted(false);
             btn.setBorder(BorderFactory.createLineBorder(canUse?itemColor:new Color(80,40,40),2));
             btn.setEnabled(canUse); btn.setBounds(cx+col*(btnW+10),rowY,btnW,btnH);
-            if (canUse) { final Fighter target=f; btn.addActionListener(ev->{ pendingTarget=target; buildBagOverlay("confirm"); }); }
+            if (canUse) { final Fighter target=f; btn.addActionListener(ev->{pendingTarget=target;buildBagOverlay("confirm");}); }
             overlay.add(btn); col++; if (col>=cols){col=0;rowY+=btnH+10;}
         }
         JButton back=new JButton("BACK"); back.setBackground(new Color(80,80,80)); back.setForeground(Color.WHITE);
         back.setFont(new Font("Monospaced",Font.BOLD,14)); back.setFocusPainted(false);
-        back.setBorder(BorderFactory.createLineBorder(Color.WHITE,2));
-        back.setBounds(winX+winW-140,winY+winH-56,120,36);
-        back.addActionListener(e->{ pendingItemUse=""; selectedIndex=-1; buildBagOverlay("main"); });
-        overlay.add(back);
+        back.setBorder(BorderFactory.createLineBorder(Color.WHITE,2)); back.setBounds(winX+winW-140,winY+winH-56,120,36);
+        back.addActionListener(e->{pendingItemUse="";selectedIndex=-1;buildBagOverlay("main");}); overlay.add(back);
     }
 
-    private void buildConfirmScreen(JPanel overlay,int winX,int winY,int winW,int winH) {
+    private void buildConfirmScreen(JPanel overlay, int winX, int winY, int winW, int winH) {
         String itemName=pendingItemUse.equals("lunas")?"Lunas":"Potion";
         Color itemColor=pendingItemUse.equals("lunas")?new Color(60,180,100):new Color(60,140,220);
         String effect=pendingItemUse.equals("lunas")?"restore PP":"restore 30 HP";
         int cx=winX+winW/2,cy=winY+winH/2-60;
         JLabel msg=new JLabel("<html><center>Use <b>"+itemName+"</b> on <b>"+pendingTarget.name+"</b><br>to "+effect+"?</center></html>",SwingConstants.CENTER);
-        msg.setForeground(Color.WHITE); msg.setFont(new Font("Monospaced",Font.PLAIN,15));
-        msg.setBounds(winX+60,cy,winW-120,60); overlay.add(msg);
+        msg.setForeground(Color.WHITE); msg.setFont(new Font("Monospaced",Font.PLAIN,15)); msg.setBounds(winX+60,cy,winW-120,60); overlay.add(msg);
         int btnY=cy+80,btnW=160,btnH=46;
         JButton yes=new JButton("YES"); yes.setBackground(new Color(30,140,60)); yes.setForeground(Color.WHITE);
         yes.setFont(new Font("Monospaced",Font.BOLD,16)); yes.setFocusPainted(false);
@@ -1352,10 +1330,10 @@ public class WorldPanel extends JPanel implements Runnable {
         JLabel lbl=new JLabel(message,SwingConstants.CENTER); lbl.setForeground(Color.WHITE);
         lbl.setFont(new Font("Monospaced",Font.BOLD,15)); box.add(lbl,BorderLayout.CENTER); ro.add(box);
         bagOverlay=ro; this.add(bagOverlay); this.setComponentZOrder(bagOverlay,0); this.revalidate(); this.repaint();
-        new Timer(1500,e->{ ((Timer)e.getSource()).stop(); closeBag(); }).start();
+        new Timer(1500,e->{((Timer)e.getSource()).stop();closeBag();}).start();
     }
 
-    private JButton styledItemBtn(String name,int count,Color accent,boolean selected) {
+    private JButton styledItemBtn(String name, int count, Color accent, boolean selected) {
         JButton btn=new JButton("<html><b>"+name+"</b>&nbsp;&nbsp;x"+count+"</html>");
         btn.setBackground(selected?new Color(60,40,10):new Color(32,20,6)); btn.setForeground(selected?accent:Color.WHITE);
         btn.setFont(new Font("Monospaced",Font.PLAIN,13)); btn.setFocusPainted(false);
@@ -1373,7 +1351,7 @@ public class WorldPanel extends JPanel implements Runnable {
         solidTiles.add(257); solidTiles.add(255); solidTiles.add(703);
     }
 
-    private boolean isSolid(int worldX,int worldY) {
+    private boolean isSolid(int worldX, int worldY) {
         int tileCol=worldX/TILE_DISPLAY_SIZE,tileRow=worldY/TILE_DISPLAY_SIZE;
         if (tileCol<0||tileRow<0||tileCol>=mapWidth||tileRow>=mapHeight) return true;
         for (int layer=2;layer<allLayerData.length;layer++) {
@@ -1410,15 +1388,21 @@ public class WorldPanel extends JPanel implements Runnable {
             int savedX=playerX,savedY=playerY;
             Fighter wild=Create.randomWildCreature();
             syncStateToGameScene();
-            SwingUtilities.invokeLater(()->gameScene.switchToBattle(playerFighter,wild,capturedTeam,scrollCount,lunasCount,potionCount,savedX,savedY));
+            SwingUtilities.invokeLater(()->
+                    gameScene.switchToBattleOnMap(playerFighter,wild,capturedTeam,
+                            scrollCount,lunasCount,potionCount,savedX,savedY,currentMapPath));
             return;
         }
 
         if (tileId==897&&!showShop&&!showBag) { SwingUtilities.invokeLater(this::openShop); return; }
 
-        // ✅ Portal tile TOP=222
+        // ✅ Portal tile TOP=222 — enter World 2
         if (tileId==222&&portalVisible) {
-            showFloatingMessage("The portal to World 2 awaits... (Coming soon!)", new Color(180,120,255));
+            if (!inBattle) {
+                inBattle=true;
+                syncStateToGameScene();
+                SwingUtilities.invokeLater(this::enterPortalToWorld2);
+            }
             return;
         }
 
@@ -1473,7 +1457,6 @@ public class WorldPanel extends JPanel implements Runnable {
         super.paintComponent(g);
         Graphics2D g2=(Graphics2D)g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
-
         if (allLayerData!=null) {
             for (int layer=0;layer<allLayerData.length;layer++)
                 for (int row=0;row<mapHeight;row++)
@@ -1495,6 +1478,7 @@ public class WorldPanel extends JPanel implements Runnable {
         } else { g2.setColor(Color.RED); g2.setFont(new Font("Arial",Font.BOLD,20)); g2.drawString("Map failed to load!",50,50); }
 
         drawHUD(g2);
+        drawTownSign(g2); // ✅ Town sign drawn after HUD
         drawQuestPanel(g2);
     }
 
@@ -1502,11 +1486,10 @@ public class WorldPanel extends JPanel implements Runnable {
         super.addNotify();
         addMouseListener(new MouseAdapter() {
             @Override public void mouseClicked(MouseEvent e) {
-                int hudX=10,hudY=10,w=200;
-                int tx=hudX+10;
+                int hudX=10,hudY=10,w=200,tx=hudX+10;
                 int ty=hudY+18+18+4+4+18+18+2+2+18+2+2+2+18+2+2+4;
                 Rectangle codeBox=new Rectangle(tx+42,ty-1,w-56,16);
-                hudCodeFocused = codeBox.contains(e.getPoint());
+                hudCodeFocused=codeBox.contains(e.getPoint());
             }
         });
         addKeyListener(new KeyAdapter() {
@@ -1533,7 +1516,8 @@ public class WorldPanel extends JPanel implements Runnable {
                 }
             }
             loadTilesets(content);
-        } catch (Exception e) { System.err.println("Error loading map: "+e.getMessage()); }
+            System.out.println("[MAP] Loaded: "+path+" ("+mapWidth+"x"+mapHeight+")");
+        } catch (Exception e) { System.err.println("Error loading map: "+e.getMessage()); e.printStackTrace(); }
     }
 
     private void loadTilesets(String tmxContent) {
@@ -1543,12 +1527,39 @@ public class WorldPanel extends JPanel implements Runnable {
                 String block=blocks[i];
                 int firstGid=Integer.parseInt(block.split("firstgid=\"")[1].split("\"")[0]);
                 String tsxSrc=block.split("source=\"")[1].split("\"")[0];
-                File tsxFile=new File("resources/"+tsxSrc); if (!tsxFile.exists()) tsxFile=new File(tsxSrc); if (!tsxFile.exists()) continue;
+
+                // ✅ Try multiple paths for .tsx file
+                File tsxFile=null;
+                String[] tsxPaths={
+                        "resources/"+tsxSrc,
+                        tsxSrc,
+                        "resources/"+new File(tsxSrc).getName(),
+                        "resources/Tilesets/"+new File(tsxSrc).getName()
+                };
+                for (String p:tsxPaths) { File f=new File(p); if (f.exists()) { tsxFile=f; break; } }
+                if (tsxFile==null) { System.err.println("[MAP] TSX not found: "+tsxSrc); continue; }
+
                 String tsxContent=new java.util.Scanner(tsxFile).useDelimiter("\\Z").next();
                 int tw=TILE_SIZE,th=TILE_SIZE;
-                if (tsxContent.contains("tilewidth=\"")) { tw=Integer.parseInt(tsxContent.split("tilewidth=\"")[1].split("\"")[0]); th=Integer.parseInt(tsxContent.split("tileheight=\"")[1].split("\"")[0]); }
+                if (tsxContent.contains("tilewidth=\"")) {
+                    tw=Integer.parseInt(tsxContent.split("tilewidth=\"")[1].split("\"")[0]);
+                    th=Integer.parseInt(tsxContent.split("tileheight=\"")[1].split("\"")[0]);
+                }
                 String imgSrc=tsxContent.split("source=\"")[1].split("\"")[0];
-                File imgFile=new File("resources/"+imgSrc); if (!imgFile.exists()) imgFile=new File("resources/Texture/"+new File(imgSrc).getName()); if (!imgFile.exists()) continue;
+                String imgName=new File(imgSrc).getName();
+
+                // ✅ Try multiple paths for tileset image
+                File imgFile=null;
+                String[] imgPaths={
+                        "resources/"+imgSrc,
+                        imgSrc,
+                        "resources/Texture/"+imgName,
+                        "resources/Tilesets/"+imgName,
+                        "resources/"+imgName
+                };
+                for (String p:imgPaths) { File f=new File(p); if (f.exists()) { imgFile=f; break; } }
+                if (imgFile==null) { System.err.println("[MAP] Tileset image not found: "+imgSrc); continue; }
+
                 BufferedImage tilesetImg=ImageIO.read(imgFile);
                 int cols=tilesetImg.getWidth()/tw,rows=tilesetImg.getHeight()/th;
                 for (int r=0;r<rows;r++) for (int c=0;c<cols;c++) {
@@ -1559,7 +1570,8 @@ public class WorldPanel extends JPanel implements Runnable {
                     Graphics2D tg=copy.createGraphics(); tg.drawImage(tile,0,0,null); tg.dispose();
                     tileCache.put(gid,copy);
                 }
+                System.out.println("[MAP] Loaded tileset: "+imgFile.getName()+" ("+cols*rows+" tiles, GID "+firstGid+")");
             }
-        } catch (Exception e) { System.err.println("Error loading tilesets: "+e.getMessage()); }
+        } catch (Exception e) { System.err.println("Error loading tilesets: "+e.getMessage()); e.printStackTrace(); }
     }
 }
