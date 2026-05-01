@@ -26,7 +26,7 @@ public class GameScene extends JFrame {
     private static final int SPAWN_Y = 5125;
 
     private String playerName    = "";
-    private int    playerAge     = 0;
+    private int    playerAge     = 0;   
     private String playerGender  = "";
     private long   gameStartTime = 0L;
 
