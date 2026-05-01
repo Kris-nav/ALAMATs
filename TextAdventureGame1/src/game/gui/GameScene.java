@@ -7,6 +7,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 public class GameScene extends JFrame {
@@ -24,14 +25,21 @@ public class GameScene extends JFrame {
     private static final int SPAWN_X = 4205;
     private static final int SPAWN_Y = 5125;
 
-    private String playerName   = "";
-    private int    playerAge    = 0;
-    private String playerGender = "";
+    private String playerName    = "";
+    private int    playerAge     = 0;
+    private String playerGender  = "";
     private long   gameStartTime = 0L;
 
-    // ✅ Coin tracking at GameScene level so it persists through battles
-    private int playerCoins = 500;
+    private int playerCoins      = 500;
+    private int antingAntingCount = 0;
     private static final Random rand = new Random();
+
+    private Fighter starterFighter = null;
+
+    private boolean adminMode      = false;
+    private boolean caveSceneShown = false;
+    private boolean bossFightDone  = false;
+    private boolean portalVisible  = false;
 
     public GameScene(ProgressionManager pm) {
         this.progressionManager = pm;
@@ -98,6 +106,14 @@ public class GameScene extends JFrame {
         this.playerGender = gender;
     }
 
+    public void syncPersistentState(boolean adminMode, boolean caveSceneShown,
+                                    boolean bossFightDone, boolean portalVisible) {
+        this.adminMode      = adminMode;
+        this.caveSceneShown = caveSceneShown;
+        this.bossFightDone  = bossFightDone;
+        this.portalVisible  = portalVisible;
+    }
+
     public void updateDisplay(String imagePath, String text) {
         File imgFile = new File(imagePath);
         if (imgFile.exists()) {
@@ -128,18 +144,15 @@ public class GameScene extends JFrame {
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
-
             WorldPanel world = new WorldPanel(this, "?", 0, "?");
             this.add(world, BorderLayout.CENTER);
             this.pack();
             this.setLocationRelativeTo(null);
             this.revalidate();
             this.repaint();
-
             SwingUtilities.invokeLater(() -> {
                 world.requestFocusInWindow();
                 world.start();
-
                 new Timer(300, e -> {
                     ((Timer) e.getSource()).stop();
                     world.showCreaturePopup(() -> openCharacterCreation(world));
@@ -162,13 +175,14 @@ public class GameScene extends JFrame {
 
                 SwingUtilities.invokeLater(() -> {
                     creation.dispose();
-                    gameStartTime = System.currentTimeMillis();
-                    playerCoins   = 500; // ✅ Start with 500 coins
+                    gameStartTime     = System.currentTimeMillis();
+                    playerCoins       = 500;
+                    antingAntingCount = 0;
+                    starterFighter    = game.battle.Create.createPlayerStarter();
 
                     this.getContentPane().removeAll();
                     this.setLayout(new BorderLayout());
-                    WorldPanel newWorld = new WorldPanel(
-                            this, playerName, playerAge, playerGender);
+                    WorldPanel newWorld = new WorldPanel(this, playerName, playerAge, playerGender);
                     this.add(newWorld, BorderLayout.CENTER);
                     this.pack();
                     this.setLocationRelativeTo(null);
@@ -183,7 +197,6 @@ public class GameScene extends JFrame {
         });
     }
 
-    // ✅ Return to world after battle - passes coins back
     public void switchToWorldAt(int x, int y,
                                 ArrayList<Fighter> team,
                                 Fighter playerFighter,
@@ -192,18 +205,25 @@ public class GameScene extends JFrame {
                                 int potionCount,
                                 int updatedCoins,
                                 long cooldownUntil) {
-        // ✅ Keep the highest coin count (in case coins were earned in battle)
         playerCoins = updatedCoins;
+        Fighter worldFighter = (starterFighter != null) ? starterFighter : playerFighter;
+        team.remove(worldFighter);
+
+        if (adminMode) {
+            for (Fighter f : team) maxFighterIfNeeded(f);
+            maxFighterIfNeeded(worldFighter);
+        }
+
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
             WorldPanel world = new WorldPanel(
-                    this, x, y, team, playerFighter,
+                    this, x, y, team, worldFighter,
                     scrollCount, lunasCount, potionCount,
                     playerName, playerAge, playerGender,
-                    playerCoins,
-                    gameStartTime,
-                    cooldownUntil);
+                    playerCoins, gameStartTime, cooldownUntil,
+                    adminMode, caveSceneShown, bossFightDone, portalVisible);
+            world.setAntingAntingCount(antingAntingCount);
             this.add(world, BorderLayout.CENTER);
             this.pack();
             this.setLocationRelativeTo(null);
@@ -216,7 +236,18 @@ public class GameScene extends JFrame {
         });
     }
 
-    // ✅ Launch battle - passes coins in, awards random coins on win
+    private void maxFighterIfNeeded(Fighter f) {
+        if (f.level >= 99) return;
+        f.level     = 99;
+        f.exp       = 0;
+        f.expToNext = game.battle.Fighter.expNeeded(99);
+        f.stats.get(0).base = 9999; f.stats.get(0).value = 9999;
+        f.stats.get(1).base = 999;  f.stats.get(1).value = 999;
+        f.stats.get(2).base = 999;  f.stats.get(2).value = 999;
+        if (f.stats.size() > 3) { f.stats.get(3).base = 999; f.stats.get(3).value = 999; }
+        for (game.battle.Move m : f.moveset) { m.lockedUntilLevel = 0; m.pp = m.maxPp; }
+    }
+
     public void switchToBattle(Fighter playerFighter,
                                Fighter wildFighter,
                                ArrayList<Fighter> team,
@@ -224,6 +255,8 @@ public class GameScene extends JFrame {
                                int lunasCount,
                                int potionCount,
                                int savedX, int savedY) {
+        if (starterFighter == null) starterFighter = playerFighter;
+
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
@@ -232,41 +265,85 @@ public class GameScene extends JFrame {
                     playerFighter, wildFighter, team,
                     scrollCount, lunasCount, potionCount,
 
-                    // ✅ onBattleEnd
                     (updatedFighter, updatedTeam, updatedScrolls,
                      updatedLunas, updatedPotions, blackout) -> {
                         long cooldownUntil = System.currentTimeMillis() + 5000L;
-
-                        if (!blackout) {
-                            // ✅ Award random coins on win: 50-200
-                            int coinsEarned = 50 + rand.nextInt(151);
-                            playerCoins += coinsEarned;
-                            System.out.println("Coins earned: " + coinsEarned +
-                                    " | Total: " + playerCoins);
-                        }
-
+                        if (!blackout) playerCoins += 50 + rand.nextInt(151);
                         if (blackout) {
-                            switchToWorldAt(SPAWN_X, SPAWN_Y,
-                                    updatedTeam, updatedFighter,
-                                    updatedScrolls, updatedLunas,
-                                    updatedPotions, playerCoins, 0L);
+                            switchToWorldAt(SPAWN_X, SPAWN_Y, updatedTeam, updatedFighter,
+                                    updatedScrolls, updatedLunas, updatedPotions, playerCoins, 0L);
                         } else {
-                            switchToWorldAt(savedX, savedY,
-                                    updatedTeam, updatedFighter,
-                                    updatedScrolls, updatedLunas,
-                                    updatedPotions, playerCoins, cooldownUntil);
+                            switchToWorldAt(savedX, savedY, updatedTeam, updatedFighter,
+                                    updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldownUntil);
                         }
                     },
 
-                    // ✅ onRun - no coins earned
                     (updatedFighter, updatedTeam, updatedScrolls,
                      updatedLunas, updatedPotions, blackout) -> {
                         long cooldownUntil = System.currentTimeMillis() + 5000L;
-                        switchToWorldAt(savedX, savedY,
-                                updatedTeam, updatedFighter,
-                                updatedScrolls, updatedLunas,
-                                updatedPotions, playerCoins, cooldownUntil);
+                        switchToWorldAt(savedX, savedY, updatedTeam, updatedFighter,
+                                updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldownUntil);
                     }
+            );
+
+            this.add(battle, BorderLayout.CENTER);
+            this.pack();
+            this.setLocationRelativeTo(null);
+            this.revalidate();
+            this.repaint();
+        });
+    }
+
+    public void switchToBossAt(Fighter playerFighter,
+                               Fighter bossFirst,
+                               ArrayList<Fighter> bossTeamRest,
+                               ArrayList<Fighter> playerTeam,
+                               int scrollCount, int lunasCount, int potionCount,
+                               int savedX, int savedY,
+                               Runnable onBossDefeated) {
+        if (starterFighter == null) starterFighter = playerFighter;
+
+        SwingUtilities.invokeLater(() -> {
+            this.getContentPane().removeAll();
+            this.setLayout(new BorderLayout());
+
+            BattleScreen battle = new BattleScreen(
+                    playerFighter, bossFirst, playerTeam,
+                    scrollCount, lunasCount, potionCount,
+
+                    (updatedFighter, updatedTeam, updatedScrolls,
+                     updatedLunas, updatedPotions, blackout) -> {
+                        long cooldown = System.currentTimeMillis() + 5000L;
+
+                        // ✅ Boss rewards: 900 coins, +200 EXP to all creatures
+                        playerCoins += 900;
+                        antingAntingCount = Math.min(4, antingAntingCount + 1);
+                        int bossExp = 200;
+                        updatedFighter.gainExp(bossExp);
+                        for (Fighter f : updatedTeam) f.gainExp(bossExp);
+
+                        if (blackout) {
+                            switchToWorldAt(SPAWN_X, SPAWN_Y, updatedTeam, updatedFighter,
+                                    updatedScrolls, updatedLunas, updatedPotions, playerCoins, 0L);
+                        } else {
+                            bossFightDone = true;
+                            portalVisible = true;
+                            if (onBossDefeated != null) onBossDefeated.run();
+                            switchToWorldAt(savedX, savedY, updatedTeam, updatedFighter,
+                                    updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldown);
+                        }
+                    },
+
+                    (updatedFighter, updatedTeam, updatedScrolls,
+                     updatedLunas, updatedPotions, blackout) -> {
+                        long cooldown = System.currentTimeMillis() + 5000L;
+                        switchToWorldAt(savedX, savedY, updatedTeam, updatedFighter,
+                                updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldown);
+                    },
+
+                    true,             // ✅ isBossFight
+                    "The Witch Doctor", // ✅ bossName
+                    bossTeamRest      // ✅ remaining boss creatures (Ekek + Serina)
             );
 
             this.add(battle, BorderLayout.CENTER);
