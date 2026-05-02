@@ -131,6 +131,11 @@ public class WorldPanel extends JPanel implements Runnable {
     private int superPotionCount = 0;
     private int superScrollCount = 0;
 
+    // ── World 2 boss and portal state ─────────────────────────────
+    private boolean w2BossTriggered    = false;
+    private boolean w2BossDone         = false;
+    private boolean w2PortalVisible    = false;
+
     // NPC dialog open guards (prevent repeated triggers per tile step)
     private boolean peksonDialogOpen   = false;
     private boolean oldWomanDialogOpen = false;
@@ -235,6 +240,11 @@ public class WorldPanel extends JPanel implements Runnable {
 
         loadMap(mapPath);
         initSolidTiles();
+
+        // Show World 2 welcome message when entering for the first time
+        if (mapPath.contains("World2")) {
+            SwingUtilities.invokeLater(this::showWorld2WelcomeMessage);
+        }
     }
 
     public int  getPlayerCoins()                { return playerCoins; }
@@ -246,6 +256,75 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     private boolean isWorld2() { return currentMapPath.contains("World2"); }
+
+    // ══════════════════════════════════════════════════════════════
+    // WORLD 2 WELCOME MESSAGE
+    // ══════════════════════════════════════════════════════════════
+
+    private void showWorld2WelcomeMessage() {
+        int pw = 800, ph = 160;
+        int px = (1280 - pw) / 2, py = (720 - ph) / 2;
+
+        JPanel overlay = new JPanel(null) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(0, 0, 0, 180));
+                g2.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+        overlay.setOpaque(false);
+        overlay.setBounds(0, 0, 1280, 720);
+
+        JPanel box = new JPanel(null) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(14, 10, 28));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
+                g2.setColor(new Color(120, 80, 200));
+                g2.setStroke(new BasicStroke(2.5f));
+                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 14, 14);
+            }
+        };
+        box.setOpaque(false);
+        box.setBounds(px, py, pw, ph);
+
+        JLabel l1 = new JLabel("Yes you have defeated the first albularyo", SwingConstants.CENTER);
+        l1.setForeground(new Color(255, 200, 80));
+        l1.setFont(new Font("Monospaced", Font.BOLD, 16));
+        l1.setBounds(20, 18, pw - 40, 24);
+        box.add(l1);
+
+        JLabel l2 = new JLabel("but be careful the other albularyos are stronger and very evil", SwingConstants.CENTER);
+        l2.setForeground(new Color(255, 140, 140));
+        l2.setFont(new Font("Monospaced", Font.PLAIN, 14));
+        l2.setBounds(20, 48, pw - 40, 22);
+        box.add(l2);
+
+        JButton btn = new JButton("Continue");
+        btn.setBackground(new Color(60, 30, 100));
+        btn.setForeground(Color.WHITE);
+        btn.setFont(new Font("Monospaced", Font.BOLD, 13));
+        btn.setFocusPainted(false);
+        btn.setBorder(BorderFactory.createLineBorder(new Color(120, 80, 200), 2));
+        btn.setBounds(pw / 2 - 80, ph - 52, 160, 36);
+        btn.addActionListener(e -> {
+            WorldPanel.this.remove(overlay);
+            WorldPanel.this.revalidate();
+            WorldPanel.this.repaint();
+            requestFocusInWindow();
+        });
+        box.add(btn);
+
+        overlay.add(box);
+        this.add(overlay);
+        this.setComponentZOrder(overlay, 0);
+        this.revalidate();
+        this.repaint();
+    }
 
     // ══════════════════════════════════════════════════════════════
     // CREATURE POPUP
@@ -391,7 +470,6 @@ public class WorldPanel extends JPanel implements Runnable {
         g2.setFont(new Font("Monospaced",Font.PLAIN,10));
         g2.drawString("CODE:", tx, ty+10);
 
-        // ✅ Code box always clickable — shows what was typed even after admin
         Color boxBorder = adminMode ? new Color(100,255,100)
                 : hudCodeFocused ? new Color(200,180,80)
                   : new Color(80,60,20);
@@ -406,7 +484,6 @@ public class WorldPanel extends JPanel implements Runnable {
 
         String displayCode;
         if (hudCodeFocused) {
-            // ✅ Always show what's being typed when focused
             g2.setColor(new Color(220,190,100));
             long blink=System.currentTimeMillis()/500;
             displayCode=hudCodeInput+(blink%2==0?"|":" ");
@@ -737,14 +814,13 @@ public class WorldPanel extends JPanel implements Runnable {
 
     private void showPeksonDialog() {
         if (peksonTalked && peksonGaveAnting2) {
-            // Already fully completed — short reminder only
             peksonDialogOpen = false;
             lastNpcTileKey = "";
             showFloatingMessage("Pekson: Stay safe on your journey, " + playerName + "!", new Color(100, 220, 255));
             return;
         }
 
-        peksonTalked = false; // reset so visiting option allows re-talk
+        peksonTalked = false;
 
         JPanel overlay = new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
@@ -831,7 +907,6 @@ public class WorldPanel extends JPanel implements Runnable {
             close.addActionListener(ev -> {
                 WorldPanel.this.remove(fOverlay);
                 WorldPanel.this.revalidate(); WorldPanel.this.repaint();
-                // Reset so player can walk back and pick the correct option
                 peksonTalked = false;
                 peksonDialogOpen = false;
                 lastNpcTileKey = "";
@@ -863,7 +938,7 @@ public class WorldPanel extends JPanel implements Runnable {
             accept.setBounds(bw / 2 - 200, bh - 80, 400, 40);
             accept.addActionListener(ev -> {
                 peksonGaveAnting2 = true;
-                peksonTalked = true; // fully completed
+                peksonTalked = true;
                 anting2Active = true;
                 expMultiplier = 2.0;
                 quest2Triggered = true;
@@ -896,7 +971,35 @@ public class WorldPanel extends JPanel implements Runnable {
     private void showOldWomanDialog() {
         if (oldWomanCured) {
             oldWomanDialogOpen = false; lastNpcTileKey = "";
-            showFloatingMessage("Old Woman: Thank you again, young one. May you find your grandpa!", new Color(200, 255, 200));
+            JPanel quickMsg = new JPanel(null) {
+                @Override protected void paintComponent(Graphics g) {
+                    super.paintComponent(g);
+                    Graphics2D g2 = (Graphics2D) g;
+                    g2.setColor(new Color(0, 0, 0, 160));
+                    g2.fillRect(0, 0, getWidth(), getHeight());
+                }
+            };
+            quickMsg.setOpaque(false);
+            quickMsg.setBounds(0, 0, 1280, 720);
+            int rw = 680, rh = 80, rx = (1280 - rw) / 2, ry = (720 - rh) / 2;
+            JPanel msgBox = new JPanel(new BorderLayout());
+            msgBox.setBackground(new Color(12, 25, 12));
+            msgBox.setBorder(BorderFactory.createLineBorder(new Color(200, 255, 200), 2));
+            msgBox.setBounds(rx, ry, rw, rh);
+            JLabel lbl = new JLabel("Old Woman: Thank you again, young one. May you find your grandpa!", SwingConstants.CENTER);
+            lbl.setForeground(new Color(200, 255, 200));
+            lbl.setFont(new Font("Monospaced", Font.BOLD, 13));
+            msgBox.add(lbl, BorderLayout.CENTER);
+            quickMsg.add(msgBox);
+            this.add(quickMsg);
+            this.setComponentZOrder(quickMsg, 0);
+            this.revalidate(); this.repaint();
+            new Timer(2500, ev -> {
+                ((Timer) ev.getSource()).stop();
+                this.remove(quickMsg);
+                this.revalidate(); this.repaint();
+                requestFocusInWindow();
+            }).start();
             return;
         }
 
@@ -958,21 +1061,53 @@ public class WorldPanel extends JPanel implements Runnable {
         cureBtn.addActionListener(e -> {
             boolean twoAtLv25 = checkTwoCreaturesAtLevel(25);
             if (!twoAtLv25) {
-                oldWomanDialogOpen = false; lastNpcTileKey = "";
-                WorldPanel.this.remove(fOverlay);
-                WorldPanel.this.revalidate(); WorldPanel.this.repaint();
-                requestFocusInWindow();
-                showFloatingMessage("You need 2 creatures at Lv.25 first!", new Color(255, 100, 100));
+                box.removeAll();
+                JLabel notReady = new JLabel("<html><center>You need 2 creatures at Lv.25 first!<br>Keep training and come back.</center></html>", SwingConstants.CENTER);
+                notReady.setForeground(new Color(255, 120, 120));
+                notReady.setFont(new Font("Monospaced", Font.BOLD, 14));
+                notReady.setBounds(20, bh / 2 - 40, bw - 40, 60);
+                box.add(notReady);
+                JButton okBtn = new JButton("OK");
+                okBtn.setBackground(new Color(80, 40, 40));
+                okBtn.setForeground(Color.WHITE);
+                okBtn.setFont(new Font("Monospaced", Font.BOLD, 13));
+                okBtn.setFocusPainted(false);
+                okBtn.setBorder(BorderFactory.createLineBorder(new Color(160, 80, 80), 2));
+                okBtn.setBounds(bw / 2 - 60, bh - 60, 120, 36);
+                okBtn.addActionListener(ev -> {
+                    oldWomanDialogOpen = false; lastNpcTileKey = "";
+                    WorldPanel.this.remove(fOverlay);
+                    WorldPanel.this.revalidate(); WorldPanel.this.repaint();
+                    requestFocusInWindow();
+                });
+                box.add(okBtn);
+                box.revalidate(); box.repaint();
                 return;
             }
             oldWomanCured = true;
             quest2Complete = true;
             oldWomanDialogOpen = false; lastNpcTileKey = "";
-            WorldPanel.this.remove(fOverlay);
-            WorldPanel.this.revalidate(); WorldPanel.this.repaint();
-            requestFocusInWindow();
-            showFloatingMessage("Old Woman cured! Quest 2 Complete! +200 Coins!", new Color(100, 255, 150));
+            box.removeAll();
+            JLabel success = new JLabel("<html><center>Old Woman cured! Quest 2 Complete!<br>+200 Coins! You can now battle the Albularyo!</center></html>", SwingConstants.CENTER);
+            success.setForeground(new Color(100, 255, 150));
+            success.setFont(new Font("Monospaced", Font.BOLD, 14));
+            success.setBounds(20, bh / 2 - 40, bw - 40, 60);
+            box.add(success);
             playerCoins += 200;
+            JButton doneBtn = new JButton("Great!");
+            doneBtn.setBackground(new Color(30, 100, 50));
+            doneBtn.setForeground(Color.WHITE);
+            doneBtn.setFont(new Font("Monospaced", Font.BOLD, 13));
+            doneBtn.setFocusPainted(false);
+            doneBtn.setBorder(BorderFactory.createLineBorder(new Color(80, 200, 100), 2));
+            doneBtn.setBounds(bw / 2 - 60, bh - 60, 120, 36);
+            doneBtn.addActionListener(ev -> {
+                WorldPanel.this.remove(fOverlay);
+                WorldPanel.this.revalidate(); WorldPanel.this.repaint();
+                requestFocusInWindow();
+            });
+            box.add(doneBtn);
+            box.revalidate(); box.repaint();
         });
         box.add(cureBtn);
 
@@ -1043,7 +1178,6 @@ public class WorldPanel extends JPanel implements Runnable {
                 g2.drawString("Coins: " + playerCoins, fwinX + fwinW - 160, fwinY + 33);
                 g2.setColor(new Color(120, 80, 200)); g2.setStroke(new BasicStroke(1.5f));
                 g2.drawLine(fwinX + 16, fwinY + 50, fwinX + fwinW - 16, fwinY + 50);
-                // Speech bubble for Dominic
                 g2.setColor(new Color(255, 250, 230)); g2.fillRoundRect(fwinX + 14, fwinY + 390, fwinW - 28, 50, 12, 12);
                 g2.setColor(new Color(120, 80, 200)); g2.setStroke(new BasicStroke(2)); g2.drawRoundRect(fwinX + 14, fwinY + 390, fwinW - 28, 50, 12, 12);
                 g2.setColor(new Color(60, 30, 100)); g2.setFont(new Font("Monospaced", Font.BOLD, 13));
@@ -1147,7 +1281,7 @@ public class WorldPanel extends JPanel implements Runnable {
 
     private void drawWorld2QuestPanel(Graphics2D g2) {
         if (!quest2Triggered) return;
-        int qx = 1280 - 230, qy = 10, qw = 220, qh = quest2Complete ? 60 : 110;
+        int qx = 1280 - 230, qy = 10, qw = 220, qh = quest2Complete ? 80 : 110;
         g2.setColor(new Color(0, 0, 0, 180)); g2.fillRoundRect(qx, qy, qw, qh, 12, 12);
         g2.setColor(quest2Complete ? new Color(80, 200, 80) : new Color(200, 120, 50));
         g2.setStroke(new BasicStroke(2)); g2.drawRoundRect(qx, qy, qw, qh, 12, 12);
@@ -1155,7 +1289,14 @@ public class WorldPanel extends JPanel implements Runnable {
         g2.drawString("QUEST 2", qx + 8, qy + 18);
         if (quest2Complete) {
             g2.setColor(new Color(100, 255, 100)); g2.setFont(new Font("Monospaced", Font.BOLD, 10));
-            g2.drawString("✓ Quest Complete!", qx + 8, qy + 42);
+            g2.drawString("✓ Quest Complete!", qx + 8, qy + 38);
+            if (w2BossDone) {
+                g2.setColor(new Color(100, 255, 100));
+                g2.drawString("✓ Albularyo defeated!", qx + 8, qy + 56);
+            } else {
+                g2.setColor(new Color(255, 160, 80)); g2.setFont(new Font("Monospaced", Font.BOLD, 10));
+                g2.drawString("Go fight the Albularyo!", qx + 8, qy + 56);
+            }
         } else {
             boolean twoLv25 = checkTwoCreaturesAtLevel(25);
             g2.setColor(twoLv25 ? new Color(100, 255, 100) : new Color(200, 200, 200));
@@ -1175,7 +1316,6 @@ public class WorldPanel extends JPanel implements Runnable {
     // ══════════════════════════════════════════════════════════════
 
     private void processHudCodeInput(char c) {
-        // ✅ Always allow typing even if admin is on (for new commands)
         if (c=='\b') {
             if (!hudCodeInput.isEmpty()) hudCodeInput=hudCodeInput.substring(0,hudCodeInput.length()-1);
         } else if (c=='\n'||c=='\r') {
@@ -1186,13 +1326,11 @@ public class WorldPanel extends JPanel implements Runnable {
             hudCodeFocused=false; hudCodeInput="";
         } else if (c>=32&&c<127&&hudCodeInput.length()<20) {
             hudCodeInput+=c;
-            // Auto-trigger on exact match
             if (hudCodeInput.equals("PeksonMaster153")) { executeCommand("PeksonMaster153"); hudCodeInput=""; }
             if (hudCodeInput.equals("Skiptown1"))       { executeCommand("Skiptown1"); hudCodeInput=""; }
         }
     }
 
-    // ✅ Central command handler
     private void executeCommand(String cmd) {
         switch (cmd) {
             case "PeksonMaster153":
@@ -1221,14 +1359,11 @@ public class WorldPanel extends JPanel implements Runnable {
         showLegendaryMessage();
     }
 
-    // ✅ Skiptown1 — skip all quests and go straight to portal/World 2
     private void skipToTown2() {
         hudCodeInput=""; hudCodeFocused=false;
-        // Mark everything as done
         caveSceneShown=true;
         bossFightDone=true;
         portalVisible=true;
-        // Fill team to 6 for quest purposes
         questCreaturesCaptured=6;
         syncStateToGameScene();
         showFloatingMessage("Skiptown1 — Portal unlocked! Head to the portal!", new Color(180,130,255));
@@ -1423,7 +1558,7 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // BOSS BATTLE
+    // BOSS BATTLE (World 1)
     // ══════════════════════════════════════════════════════════════
 
     private void triggerBossFight() {
@@ -1465,7 +1600,109 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // PORTAL
+    // WORLD 2 BOSS FIGHT
+    // ══════════════════════════════════════════════════════════════
+
+    private void triggerWorld2Boss() {
+        if (w2BossTriggered || w2BossDone) return;
+
+        if (!quest2Complete) {
+            showFloatingMessage("Complete Quest 2 first! (Lv.25 creatures + cure old woman)", new Color(255, 100, 100));
+            return;
+        }
+
+        w2BossTriggered = true;
+        inBattle = true;
+        int savedX = playerX, savedY = playerY;
+
+        Fighter bossFirst = Create.createSigbin(25);
+        Fighter boss2     = createBungisngis25();
+        Fighter boss3     = createAmongmongo25();
+        Fighter boss4     = createAmaninhig25();
+        Fighter boss5     = createMangkukulam(25);
+
+        ArrayList<Fighter> bossRest = new ArrayList<>();
+        bossRest.add(boss2);
+        bossRest.add(boss3);
+        bossRest.add(boss4);
+        bossRest.add(boss5);
+
+        syncStateToGameScene();
+        SwingUtilities.invokeLater(() ->
+                gameScene.switchToBossAtOnMap(playerFighter, bossFirst, bossRest,
+                        capturedTeam, scrollCount, lunasCount, potionCount,
+                        savedX, savedY,
+                        () -> {
+                            w2BossDone = true;
+                            w2PortalVisible = true;
+                            w2BossTriggered = false;
+                            antingAntingCount = Math.min(4, antingAntingCount + 1);
+                        },
+                        "resources/World2.tmx")
+        );
+    }
+
+    private Fighter createBungisngis25() {
+        Type EARTH = new Type("Earth", 0xBB8833);
+        ArrayList<Type> types = new ArrayList<>(Arrays.asList(EARTH));
+        ArrayList<game.battle.Move> allMoves = new ArrayList<>(Arrays.asList(
+                new game.battle.Move("Tackle",     new Type("Normal",0xAAAAAA), 35, new ArrayList<>(), 12),
+                new game.battle.Move("Rock Throw", EARTH, 50, new ArrayList<>(), 10),
+                new game.battle.Move("Stone Edge", EARTH, 80, new ArrayList<>(), 8),
+                new game.battle.Move("Rock Smash", EARTH, 95, new ArrayList<>(), 6)
+        ));
+        ArrayList<Integer> ul = new ArrayList<>(Arrays.asList(1, 1, 6, 10));
+        ArrayList<Stat> stats = new ArrayList<>();
+        int extra = 25 - 5;
+        stats.add(new Stat("HP",  210 + extra * 10));
+        stats.add(new Stat("ATK", 100 + extra * 4));
+        stats.add(new Stat("DEF", 110 + extra * 3));
+        stats.add(new Stat("SPD",  55 + extra * 3));
+        return new Fighter("Bungisngis", "/images/Bungisngis.png", "/images/Bungisngis.png", types, stats, allMoves, ul, 25);
+    }
+
+    private Fighter createAmongmongo25() {
+        Type EARTH = new Type("Earth", 0xBB8833);
+        Type NORMAL = new Type("Normal", 0xAAAAAA);
+        ArrayList<Type> types = new ArrayList<>(Arrays.asList(EARTH, NORMAL));
+        ArrayList<game.battle.Move> allMoves = new ArrayList<>(Arrays.asList(
+                new game.battle.Move("Scratch", NORMAL, 30, new ArrayList<>(), 12),
+                new game.battle.Move("Dig",     EARTH,  60, new ArrayList<>(), 10),
+                new game.battle.Move("Slash",   NORMAL, 70, new ArrayList<>(), 8),
+                new game.battle.Move("Fissure", EARTH,  90, new ArrayList<>(), 6)
+        ));
+        ArrayList<Integer> ul = new ArrayList<>(Arrays.asList(1, 1, 5, 11));
+        ArrayList<Stat> stats = new ArrayList<>();
+        int extra = 25 - 5;
+        stats.add(new Stat("HP",  195 + extra * 10));
+        stats.add(new Stat("ATK",  90 + extra * 4));
+        stats.add(new Stat("DEF",  95 + extra * 3));
+        stats.add(new Stat("SPD",  80 + extra * 3));
+        return new Fighter("Amongmongo", "/images/Amongmongo.png", "/images/Amongmongo.png", types, stats, allMoves, ul, 25);
+    }
+
+    private Fighter createAmaninhig25() {
+        Type SHADOW = new Type("Shadow", 0x6644AA);
+        Type SPIRIT = new Type("Spirit", 0xAADDFF);
+        ArrayList<Type> types = new ArrayList<>(Arrays.asList(SHADOW, SPIRIT));
+        ArrayList<game.battle.Move> allMoves = new ArrayList<>(Arrays.asList(
+                new game.battle.Move("Shadow Claw",  SHADOW, 45, new ArrayList<>(), 10),
+                new game.battle.Move("Spirit Pulse", SPIRIT, 55, new ArrayList<>(), 10),
+                new game.battle.Move("Night Slash",  SHADOW, 75, new ArrayList<>(), 8),
+                new game.battle.Move("Soul Drain",   SPIRIT, 90, new ArrayList<>(), 6)
+        ));
+        ArrayList<Integer> ul = new ArrayList<>(Arrays.asList(1, 1, 6, 12));
+        ArrayList<Stat> stats = new ArrayList<>();
+        int extra = 25 - 5;
+        stats.add(new Stat("HP",  165 + extra * 10));
+        stats.add(new Stat("ATK",  95 + extra * 4));
+        stats.add(new Stat("DEF",  70 + extra * 3));
+        stats.add(new Stat("SPD", 100 + extra * 3));
+        return new Fighter("Amaninhig", "/images/Amaranhig.png", "/images/Amaranhig.png", types, stats, allMoves, ul, 25);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // WORLD 1 PORTAL (purple — World 2 entry)
     // ══════════════════════════════════════════════════════════════
 
     private void drawPortal(Graphics2D g2) {
@@ -1509,7 +1746,53 @@ public class WorldPanel extends JPanel implements Runnable {
         g2.drawString(label,cx-fm.stringWidth(label)/2,tileY-4+(int)bounce);
     }
 
-    // ✅ Portal cinematic — World 2 transition
+    // ══════════════════════════════════════════════════════════════
+    // WORLD 2 PORTAL (cyan/teal — World 3 entry, coming soon)
+    // ══════════════════════════════════════════════════════════════
+
+    private void drawWorld2Portal(Graphics2D g2) {
+        if (!w2PortalVisible) return;
+        // Portal at col=21 row=11
+        int tileX = 21 * TILE_DISPLAY_SIZE - cameraX;
+        int tileY = 11 * TILE_DISPLAY_SIZE - cameraY;
+        if (tileX + TILE_DISPLAY_SIZE < 0 || tileX > 1280 || tileY + TILE_DISPLAY_SIZE < 0 || tileY > 720) return;
+
+        long t = System.currentTimeMillis();
+        float bounce = (float)(Math.sin(t / 300.0) * 5);
+        float pulse  = (float)(Math.sin(t / 400.0) * 0.3 + 0.7);
+        int cx = tileX + TILE_DISPLAY_SIZE / 2;
+        int cy = tileY + TILE_DISPLAY_SIZE / 2 + (int)bounce;
+
+        // Glow — cyan/teal to distinguish from World 1 purple portal
+        g2.setColor(new Color(50, 200, 255, (int)(70 * pulse)));
+        g2.fillOval(cx - 24, cy - 24, 48, 48);
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setColor(new Color(180, 240, 255));
+        g2.setStroke(new BasicStroke(3, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.drawLine(cx - 10, cy, cx + 8, cy);
+        int[] arrowX = {cx + 8, cx + 1, cx + 1};
+        int[] arrowY = {cy, cy - 7, cy + 7};
+        g2.setColor(new Color(150, 220, 255));
+        g2.fillPolygon(arrowX, arrowY, 3);
+        g2.setColor(new Color(100, 220, 255, (int)(200 * pulse)));
+        int sparkR = 20;
+        for (int i = 0; i < 4; i++) {
+            double angle = Math.toRadians((t / 6 + i * 90) % 360);
+            int sx = cx + (int)(sparkR * Math.cos(angle));
+            int sy = cy + (int)(sparkR * Math.sin(angle));
+            g2.fillOval(sx - 3, sy - 3, 6, 6);
+        }
+        g2.setColor(new Color(180, 240, 255));
+        g2.setFont(new Font("Monospaced", Font.BOLD, 10));
+        FontMetrics fm = g2.getFontMetrics();
+        String label = "WORLD 3 ▶";
+        g2.drawString(label, cx - fm.stringWidth(label) / 2, tileY - 4 + (int)bounce);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // PORTAL CINEMATIC — World 2 transition
+    // ══════════════════════════════════════════════════════════════
+
     private void enterPortalToWorld2() {
         JPanel overlay=new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
@@ -1597,13 +1880,11 @@ public class WorldPanel extends JPanel implements Runnable {
                 g2.setColor(new Color(120,120,120)); g2.setFont(new Font("Monospaced",Font.PLAIN,11));
                 FontMetrics hfm=g2.getFontMetrics(); String hint="Press [E] to close";
                 g2.drawString(hint,fwinX+(fwinW-hfm.stringWidth(hint))/2,fwinY+fwinH-12);
-                // ✅ Joshua drawn lower so items are visible above him
                 drawJoshua(g2,fwinX+14,fwinY+230,110,200);
             }
         };
         shopOverlay.setOpaque(false); shopOverlay.setBounds(0,0,screenW,screenH);
 
-        // ✅ Speech bubble repositioned to sit beside Joshua at the bottom
         int bubbleX=winX+130, bubbleY=winY+240, bubbleW=winW-150, bubbleH=60;
         JPanel bubble=new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
@@ -1627,7 +1908,6 @@ public class WorldPanel extends JPanel implements Runnable {
         bl2.setBounds(12,30,bubbleW-20,18); bubble.add(bl2);
         shopOverlay.add(bubble);
 
-        // ✅ Items start from top — pushed up so Joshua is below
         int itemY=winY+60, itemX=winX+24, itemW=winW-48, rowH=56, gap=6;
         Object[][] items={{"Scroll","Capture wild creatures in battle.",30,"scroll"},{"Lunas","Restore 5 PP to one creature move.",25,"lunas"},{"Potion","Restore 30 HP to one creature.",25,"potion"}};
         for (Object[] item:items) {
@@ -2114,7 +2394,7 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // WORLD 2 CREATURE POOLS
+    // CREATURE POOLS
     // ══════════════════════════════════════════════════════════════
 
     // World 1 creatures: Aghoy, Ekek, Sirena, Kapre only
@@ -2205,7 +2485,6 @@ public class WorldPanel extends JPanel implements Runnable {
         int tileId=0;
         for (int layer=0;layer<allLayerData.length;layer++) { int t=allLayerData[layer][tileRow][tileCol]; if (t>0) tileId=t; }
 
-        // ✅ Tile debug for BOTH worlds
         if (tileId!=lastDebugTileId) {
             lastDebugTileId=tileId;
             StringBuilder dbg=new StringBuilder("[TILE] col=").append(tileCol).append(" row=").append(tileRow).append(" | ");
@@ -2215,7 +2494,6 @@ public class WorldPanel extends JPanel implements Runnable {
             }
             dbg.append("| TOP=").append(tileId);
             System.out.println(dbg);
-            // Reset hover message and NPC guards when tile changes
             clearHoverMessage();
             if (!peksonDialogOpen && !oldWomanDialogOpen) {
                 lastNpcTileKey = "";
@@ -2327,8 +2605,26 @@ public class WorldPanel extends JPanel implements Runnable {
         }
 
         // Warning sign near Albularyo: col=23 row=13 | TOP=846
-        if (tileCol==6 && tileRow==10 && tileId==710) {
+        if (tileCol==23 && tileRow==13 && tileId==846) {
             setHoverMessage("Beware an evil albularyo is at top he curses people in this village and ask tons of coins to heal them");
+            return;
+        }
+
+        // World 2 BOSS: col=22 row=10 | TOP=128
+        if (tileCol==22 && tileRow==10 && tileId==128) {
+            if (!w2BossDone && !w2BossTriggered) {
+                SwingUtilities.invokeLater(this::triggerWorld2Boss);
+            } else if (w2BossDone) {
+                setHoverMessage("You have already defeated the Town 2 Albularyo!");
+            }
+            return;
+        }
+
+        // World 2 PORTAL: col=21 row=11 | TOP=812
+        if (tileCol==21 && tileRow==11 && tileId==812) {
+            if (w2PortalVisible) {
+                setHoverMessage("WORLD 3 portal — coming soon!");
+            }
             return;
         }
 
@@ -2414,6 +2710,7 @@ public class WorldPanel extends JPanel implements Runnable {
                         if (img!=null) g2.drawImage(img,drawX,drawY,TILE_DISPLAY_SIZE,TILE_DISPLAY_SIZE,null);
                     }
             drawPortal(g2);
+            if (isWorld2()) drawWorld2Portal(g2);
             int px=playerX-cameraX,py=playerY-cameraY;
             if (playerSheet!=null) {
                 int fw=25,fh=25;
@@ -2434,7 +2731,6 @@ public class WorldPanel extends JPanel implements Runnable {
                 int hudX=10,hudY=10,w=200,tx=hudX+10;
                 int ty=hudY+18+18+4+4+18+18+2+2+18+2+2+2+18+2+2+4;
                 Rectangle codeBox=new Rectangle(tx+42,ty-1,w-56,16);
-                // ✅ Toggle focus — click box to focus, click elsewhere to unfocus
                 hudCodeFocused=codeBox.contains(e.getPoint());
             }
         });
