@@ -26,7 +26,7 @@ public class GameScene extends JFrame {
     private static final int SPAWN_Y = 5125;
 
     private String playerName    = "";
-    private int    playerAge     = 0;   
+    private int    playerAge     = 0;
     private String playerGender  = "";
     private long   gameStartTime = 0L;
 
@@ -36,10 +36,27 @@ public class GameScene extends JFrame {
 
     private Fighter starterFighter = null;
 
+    // ── World 1 persistent state ───────────────────────────────────
     private boolean adminMode      = false;
     private boolean caveSceneShown = false;
     private boolean bossFightDone  = false;
     private boolean portalVisible  = false;
+
+    // ── World 2 persistent state ───────────────────────────────────
+    private boolean w2BossDone       = false;
+    private boolean w2PortalVisible  = false;
+    private boolean quest2Complete   = false;
+    private boolean oldWomanCured    = false;
+    private boolean peksonGaveAnting2 = false;
+    private boolean anting2Active    = false;
+    private double  expMultiplier    = 1.0;
+    private boolean peksonTalked     = false;
+    private boolean treasureFound    = false;
+    private boolean hasMap           = false;
+    private boolean quest2Triggered  = false;
+    private int     superLunasCount  = 0;
+    private int     superPotionCount = 0;
+    private int     superScrollCount = 0;
 
     public GameScene(ProgressionManager pm) {
         this.progressionManager = pm;
@@ -112,6 +129,30 @@ public class GameScene extends JFrame {
         this.caveSceneShown = caveSceneShown;
         this.bossFightDone  = bossFightDone;
         this.portalVisible  = portalVisible;
+    }
+
+    /** Called by WorldPanel to sync World 2 state back into GameScene before any scene switch. */
+    public void syncWorld2State(boolean w2BossDone, boolean w2PortalVisible,
+                                boolean quest2Complete, boolean oldWomanCured,
+                                boolean peksonGaveAnting2, boolean anting2Active,
+                                double expMultiplier, boolean peksonTalked,
+                                boolean treasureFound, boolean hasMap,
+                                boolean quest2Triggered,
+                                int superLunas, int superPotion, int superScroll) {
+        this.w2BossDone        = w2BossDone;
+        this.w2PortalVisible   = w2PortalVisible;
+        this.quest2Complete    = quest2Complete;
+        this.oldWomanCured     = oldWomanCured;
+        this.peksonGaveAnting2 = peksonGaveAnting2;
+        this.anting2Active     = anting2Active;
+        this.expMultiplier     = expMultiplier;
+        this.peksonTalked      = peksonTalked;
+        this.treasureFound     = treasureFound;
+        this.hasMap            = hasMap;
+        this.quest2Triggered   = quest2Triggered;
+        this.superLunasCount   = superLunas;
+        this.superPotionCount  = superPotion;
+        this.superScrollCount  = superScroll;
     }
 
     public void updateDisplay(String imagePath, String text) {
@@ -197,7 +238,7 @@ public class GameScene extends JFrame {
         });
     }
 
-    // ✅ Return to world after any battle — restores ALL persistent state
+    // ── Return to World 1 after any battle ────────────────────────
     public void switchToWorldAt(int x, int y,
                                 ArrayList<Fighter> team,
                                 Fighter playerFighter,
@@ -218,6 +259,7 @@ public class GameScene extends JFrame {
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
+            // FIX 1: post-battle rebuild — isFirstEntry = false (uses overload without isFirstEntry)
             WorldPanel world = new WorldPanel(
                     this, x, y, team, worldFighter,
                     scrollCount, lunasCount, potionCount,
@@ -237,7 +279,7 @@ public class GameScene extends JFrame {
         });
     }
 
-    // ✅ Return to world with custom map path (World 2+)
+    // ── Return to any map after battle (World 2 aware) ────────────
     public void switchToWorldAtMap(int x, int y,
                                    ArrayList<Fighter> team,
                                    Fighter playerFighter,
@@ -259,23 +301,55 @@ public class GameScene extends JFrame {
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
-            WorldPanel world = new WorldPanel(
-                    this, x, y, team, worldFighter,
-                    scrollCount, lunasCount, potionCount,
-                    playerName, playerAge, playerGender,
-                    playerCoins, gameStartTime, cooldownUntil,
-                    adminMode, caveSceneShown, bossFightDone, portalVisible,
-                    mapPath);
-            world.setAntingAntingCount(antingAntingCount);
-            this.add(world, BorderLayout.CENTER);
-            this.pack();
-            this.setLocationRelativeTo(null);
-            this.revalidate();
-            this.repaint();
-            SwingUtilities.invokeLater(() -> {
-                world.requestFocusInWindow();
-                world.start();
-            });
+
+            if (mapPath.contains("World2")) {
+                // FIX 1: post-battle rebuild of World 2 — isFirstEntry = false
+                WorldPanel world = new WorldPanel(
+                        this, x, y, team, worldFighter,
+                        scrollCount, lunasCount, potionCount,
+                        playerName, playerAge, playerGender,
+                        playerCoins, gameStartTime, cooldownUntil,
+                        adminMode, caveSceneShown, bossFightDone, portalVisible,
+                        mapPath,
+                        false);  // <-- FIX 1: NOT first entry, coming back from battle
+                world.setAntingAntingCount(antingAntingCount);
+                world.restoreWorld2State(
+                        w2BossDone, w2PortalVisible,
+                        quest2Complete, oldWomanCured,
+                        peksonGaveAnting2, anting2Active,
+                        expMultiplier, peksonTalked,
+                        treasureFound, hasMap,
+                        quest2Triggered,
+                        superLunasCount, superPotionCount, superScrollCount);
+                this.add(world, BorderLayout.CENTER);
+                this.pack();
+                this.setLocationRelativeTo(null);
+                this.revalidate();
+                this.repaint();
+                SwingUtilities.invokeLater(() -> {
+                    world.requestFocusInWindow();
+                    world.start();
+                });
+            } else {
+                // World 1 or other maps
+                WorldPanel world = new WorldPanel(
+                        this, x, y, team, worldFighter,
+                        scrollCount, lunasCount, potionCount,
+                        playerName, playerAge, playerGender,
+                        playerCoins, gameStartTime, cooldownUntil,
+                        adminMode, caveSceneShown, bossFightDone, portalVisible,
+                        mapPath);
+                world.setAntingAntingCount(antingAntingCount);
+                this.add(world, BorderLayout.CENTER);
+                this.pack();
+                this.setLocationRelativeTo(null);
+                this.revalidate();
+                this.repaint();
+                SwingUtilities.invokeLater(() -> {
+                    world.requestFocusInWindow();
+                    world.start();
+                });
+            }
         });
     }
 
@@ -303,7 +377,7 @@ public class GameScene extends JFrame {
                 savedX, savedY, "resources/World1.tmx");
     }
 
-    // ✅ Battle that returns to a specific map
+    // ── Wild battle returning to a specific map ────────────────────
     public void switchToBattleOnMap(Fighter playerFighter,
                                     Fighter wildFighter,
                                     ArrayList<Fighter> team,
@@ -373,7 +447,7 @@ public class GameScene extends JFrame {
                 savedX, savedY, onBossDefeated, "resources/World1.tmx");
     }
 
-    // ✅ Boss battle that returns to a specific map
+    // ── Boss battle returning to a specific map ────────────────────
     public void switchToBossAtOnMap(Fighter playerFighter,
                                     Fighter bossFirst,
                                     ArrayList<Fighter> bossTeamRest,
@@ -392,11 +466,12 @@ public class GameScene extends JFrame {
                     playerFighter, bossFirst, playerTeam,
                     scrollCount, lunasCount, potionCount,
 
+                    // ── Win callback ───────────────────────────────────────
                     (updatedFighter, updatedTeam, updatedScrolls,
                      updatedLunas, updatedPotions, blackout) -> {
                         long cooldown = System.currentTimeMillis() + 5000L;
 
-                        // ✅ Boss rewards: 900 coins, +200 EXP, +1 anting-anting
+                        // Boss rewards: 900 coins, +200 EXP, +1 anting-anting
                         playerCoins += 900;
                         antingAntingCount = Math.min(4, antingAntingCount + 1);
                         int bossExp = 200;
@@ -404,22 +479,35 @@ public class GameScene extends JFrame {
                         for (Fighter f : updatedTeam) f.gainExp(bossExp);
 
                         if (blackout) {
-                            switchToWorldAt(SPAWN_X, SPAWN_Y, updatedTeam, updatedFighter,
-                                    updatedScrolls, updatedLunas, updatedPotions, playerCoins, 0L);
-                        } else {
-                            bossFightDone = true;
-                            portalVisible = true;
-                            if (onBossDefeated != null) onBossDefeated.run();
-                            if (returnMapPath.equals("resources/World1.tmx")) {
-                                switchToWorldAt(savedX, savedY, updatedTeam, updatedFighter,
-                                        updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldown);
+                            // Player blacked out — respawn, no boss state change
+                            if (returnMapPath.contains("World2")) {
+                                switchToWorldAtMap(SPAWN_X, SPAWN_Y, updatedTeam, updatedFighter,
+                                        updatedScrolls, updatedLunas, updatedPotions, playerCoins, 0L, returnMapPath);
                             } else {
+                                switchToWorldAt(SPAWN_X, SPAWN_Y, updatedTeam, updatedFighter,
+                                        updatedScrolls, updatedLunas, updatedPotions, playerCoins, 0L);
+                            }
+                        } else {
+                            // Player won
+                            if (returnMapPath.contains("World2")) {
+                                // ── World 2 boss defeated ──────────────────
+                                w2BossDone      = true;
+                                w2PortalVisible = true;
+                                if (onBossDefeated != null) onBossDefeated.run();
                                 switchToWorldAtMap(savedX, savedY, updatedTeam, updatedFighter,
                                         updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldown, returnMapPath);
+                            } else {
+                                // ── World 1 boss defeated ──────────────────
+                                bossFightDone = true;
+                                portalVisible = true;
+                                if (onBossDefeated != null) onBossDefeated.run();
+                                switchToWorldAt(savedX, savedY, updatedTeam, updatedFighter,
+                                        updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldown);
                             }
                         }
                     },
 
+                    // ── Run/escape callback ────────────────────────────────
                     (updatedFighter, updatedTeam, updatedScrolls,
                      updatedLunas, updatedPotions, blackout) -> {
                         long cooldown = System.currentTimeMillis() + 5000L;
@@ -445,7 +533,7 @@ public class GameScene extends JFrame {
         });
     }
 
-    // ✅ Switch to World 2
+    // ── Enter World 2 for the first time ──────────────────────────
     public void switchToWorld2(Fighter playerFighter,
                                ArrayList<Fighter> team,
                                int scrollCount,
@@ -469,11 +557,25 @@ public class GameScene extends JFrame {
         this.caveSceneShown    = caveSceneShown;
         this.adminMode         = adminMode;
         this.gameStartTime     = startTime;
-        // ✅ Reset boss/portal for World 2
-        this.bossFightDone  = false;
-        this.portalVisible  = false;
 
-        // ✅ World 2 spawn — adjust to your World2.tmx spawn point
+        // Reset World 1 boss flags (already done), reset World 2 flags fresh
+        this.bossFightDone    = false;
+        this.portalVisible    = false;
+        this.w2BossDone       = false;
+        this.w2PortalVisible  = false;
+        this.quest2Complete   = false;
+        this.oldWomanCured    = false;
+        this.peksonGaveAnting2 = false;
+        this.anting2Active    = false;
+        this.expMultiplier    = 1.0;
+        this.peksonTalked     = false;
+        this.treasureFound    = false;
+        this.hasMap           = false;
+        this.quest2Triggered  = false;
+        this.superLunasCount  = 0;
+        this.superPotionCount = 0;
+        this.superScrollCount = 0;
+
         int world2SpawnX = 4205;
         int world2SpawnY = 5125;
 
@@ -481,6 +583,7 @@ public class GameScene extends JFrame {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
 
+            // FIX 1: This is the TRUE first entry into World 2 — isFirstEntry = true
             WorldPanel world = new WorldPanel(
                     this, world2SpawnX, world2SpawnY,
                     team, worldFighter,
@@ -488,8 +591,10 @@ public class GameScene extends JFrame {
                     playerName, playerAge, playerGender,
                     coins, startTime, 0L,
                     adminMode, caveSceneShown, false, false,
-                    "resources/World2.tmx");
+                    "resources/World2.tmx",
+                    true);  // <-- FIX 1: isFirstEntry = true ONLY here
             world.setAntingAntingCount(antingAntingCount);
+            // World 2 state is all fresh — no restoreWorld2State needed here
 
             this.add(world, BorderLayout.CENTER);
             this.pack();
