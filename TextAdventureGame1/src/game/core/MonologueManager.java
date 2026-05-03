@@ -99,7 +99,7 @@ public class MonologueManager {
         gameGui.clearText();
 
         printSlowlyToGUI(gameGui, "SYSTEM NOTIFICATION:", 40);
-        printSlowlyToGUI(gameGui, "Stats Initialized. Level 1 Albularyo Apprentice.", 40);
+        printSlowlyToGUI(gameGui, "Stats Initialized Albularyo Apprentice.", 40);
         printSlowlyToGUI(gameGui, "The fate of your grandfather rests in your hands.", 50);
 
         gameGui.setNextButtonText("Begin Adventure");

@@ -223,7 +223,7 @@ public class WorldPanel extends JPanel implements Runnable {
         this.currentMapPath         = mapPath;
 
         if (mapPath.contains("World2")) {
-            this.currentTownName = "TOWN 2 — New Land";
+            this.currentTownName = "TOWN 2 — Maghaway";
         } else {
             this.currentTownName = "TOWN 1 — USA Village";
         }
@@ -2033,110 +2033,192 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     private void buildMainBagScreen(JPanel overlay, int winX, int winY, int winW, int winH) {
-        int leftX=winX+20,leftY=winY+60,leftW=360,rowH=46,gap=5;
-        JPanel leftPanel=new JPanel(null) {
-            @Override protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2=(Graphics2D)g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(200,155,60)); g2.setFont(new Font("Monospaced",Font.BOLD,12)); g2.drawString("ITEMS",0,14);
-                g2.setColor(new Color(100,70,15)); g2.setStroke(new BasicStroke(1)); g2.drawLine(0,18,leftW,18);
-            }
-        };
-        leftPanel.setOpaque(false); leftPanel.setBounds(leftX,leftY,leftW,winH-80); overlay.add(leftPanel);
+        // ── Layout constants ───────────────────────────────────────
+        final int leftX   = winX + 14;
+        final int leftW   = 370;
+        final int rightX  = leftX + leftW + 14;
+        final int rightW  = winW - leftW - 42;
+        final int topY    = winY + 56;
+        final int bottomY = winY + winH - 36;
+        final int totalH  = bottomY - topY;
 
-        String[] iNames={"Scroll","Lunas","Potion"}; int[] iCounts={scrollCount,lunasCount,potionCount};
-        Color[] iColors={new Color(140,70,200),new Color(60,180,100),new Color(60,140,220)};
-        int iy=22;
-        for (int i=0;i<3;i++) {
-            final int idx=i; boolean sel=(selectedIndex==i&&selectedCreatureIndex==-1);
-            JButton btn=styledItemBtn(iNames[i],iCounts[i],iColors[i],sel); btn.setBounds(0,iy,leftW,rowH);
-            btn.addActionListener(e->{selectedIndex=(selectedIndex==idx&&selectedCreatureIndex==-1)?-1:idx;selectedCreatureIndex=-1;buildBagOverlay("main");});
-            leftPanel.add(btn); iy+=rowH+gap;
+        // Split left column: top half = items, bottom half = team
+        final int splitH     = totalH / 2;
+        final int itemsTop   = topY;
+        final int itemsH     = splitH - 10;
+        final int teamTop    = topY + splitH;
+        final int teamH      = totalH - splitH;
+
+        final int rowH = 40, gap = 4;
+
+        // ── ITEMS section header ───────────────────────────────────
+        JLabel itemsHeader = new JLabel("ITEMS");
+        itemsHeader.setForeground(new Color(200,155,60));
+        itemsHeader.setFont(new Font("Monospaced", Font.BOLD, 12));
+        itemsHeader.setBounds(leftX, itemsTop, leftW, 16);
+        overlay.add(itemsHeader);
+
+        // ── Build item list into a BoxLayout panel ─────────────────
+        JPanel itemListPanel = new JPanel();
+        itemListPanel.setOpaque(false);
+        itemListPanel.setLayout(new BoxLayout(itemListPanel, BoxLayout.Y_AXIS));
+
+        // Basic items
+        String[] iNames  = {"Scroll","Lunas","Potion"};
+        int[]    iCounts = {scrollCount, lunasCount, potionCount};
+        Color[]  iColors = {new Color(140,70,200), new Color(60,180,100), new Color(60,140,220)};
+        for (int i = 0; i < 3; i++) {
+            final int idx = i;
+            boolean sel = (selectedIndex == idx && selectedCreatureIndex == -1);
+            JButton btn = styledItemBtn(iNames[i], iCounts[i], iColors[i], sel);
+            btn.setMaximumSize(new Dimension(leftW, rowH));
+            btn.setPreferredSize(new Dimension(leftW, rowH));
+            btn.addActionListener(e -> {
+                selectedIndex = (selectedIndex == idx && selectedCreatureIndex == -1) ? -1 : idx;
+                selectedCreatureIndex = -1;
+                buildBagOverlay("main");
+            });
+            itemListPanel.add(btn);
+            itemListPanel.add(Box.createVerticalStrut(gap));
         }
 
+        // World 2 super items + Anting2
         if (isWorld2()) {
-            String[] w2Names={"Super Lunas","Super Potion","Super Scroll"};
-            int[] w2Counts={superLunasCount,superPotionCount,superScrollCount};
-            Color[] w2Colors={new Color(80,200,160),new Color(80,160,220),new Color(160,80,220)};
-            int[] w2Idx={3,4,5};
-            for (int i=0;i<3;i++) {
-                final int idx=w2Idx[i]; boolean sel=(selectedIndex==idx&&selectedCreatureIndex==-1);
-                JButton btn=styledItemBtn(w2Names[i],w2Counts[i],w2Colors[i],sel); btn.setBounds(0,iy,leftW,rowH);
-                btn.addActionListener(e->{selectedIndex=(selectedIndex==idx&&selectedCreatureIndex==-1)?-1:idx;selectedCreatureIndex=-1;buildBagOverlay("main");});
-                leftPanel.add(btn); iy+=rowH+gap;
+            String[] w2Names  = {"Super Lunas","Super Potion","Super Scroll"};
+            int[]    w2Counts = {superLunasCount, superPotionCount, superScrollCount};
+            Color[]  w2Colors = {new Color(80,200,160), new Color(80,160,220), new Color(160,80,220)};
+            int[]    w2Idx    = {3, 4, 5};
+            for (int i = 0; i < 3; i++) {
+                final int idx = w2Idx[i];
+                boolean sel = (selectedIndex == idx && selectedCreatureIndex == -1);
+                JButton btn = styledItemBtn(w2Names[i], w2Counts[i], w2Colors[i], sel);
+                btn.setMaximumSize(new Dimension(leftW, rowH));
+                btn.setPreferredSize(new Dimension(leftW, rowH));
+                btn.addActionListener(e -> {
+                    selectedIndex = (selectedIndex == idx && selectedCreatureIndex == -1) ? -1 : idx;
+                    selectedCreatureIndex = -1;
+                    buildBagOverlay("main");
+                });
+                itemListPanel.add(btn);
+                itemListPanel.add(Box.createVerticalStrut(gap));
             }
             if (peksonGaveAnting2) {
-                boolean sel=(selectedIndex==10&&selectedCreatureIndex==-1);
-                JButton aBtn=styledItemBtn("Anting2 ("+(anting2Active?"WORN":"UNUSED")+")",1,new Color(255,180,50),sel);
-                aBtn.setBounds(0,iy,leftW,rowH);
-                aBtn.addActionListener(e->{selectedIndex=(selectedIndex==10&&selectedCreatureIndex==-1)?-1:10;selectedCreatureIndex=-1;buildBagOverlay("main");});
-                leftPanel.add(aBtn);
+                boolean sel = (selectedIndex == 10 && selectedCreatureIndex == -1);
+                JButton aBtn = styledItemBtn("Anting2 (" + (anting2Active ? "WORN" : "UNUSED") + ")", 1, new Color(255,180,50), sel);
+                aBtn.setMaximumSize(new Dimension(leftW, rowH));
+                aBtn.setPreferredSize(new Dimension(leftW, rowH));
+                aBtn.addActionListener(e -> {
+                    selectedIndex = (selectedIndex == 10 && selectedCreatureIndex == -1) ? -1 : 10;
+                    selectedCreatureIndex = -1;
+                    buildBagOverlay("main");
+                });
+                itemListPanel.add(aBtn);
+                itemListPanel.add(Box.createVerticalStrut(gap));
             }
         }
 
-        int teamHeaderY=leftY+iy+16;
-        JLabel teamHeader=new JLabel("TEAM  ("+(capturedTeam.size()+1)+"/6)");
-        teamHeader.setForeground(new Color(200,155,60)); teamHeader.setFont(new Font("Monospaced",Font.BOLD,12));
-        teamHeader.setBounds(leftX,teamHeaderY,leftW,16); overlay.add(teamHeader);
+        JScrollPane itemsScroll = new JScrollPane(itemListPanel);
+        itemsScroll.setOpaque(false);
+        itemsScroll.getViewport().setOpaque(false);
+        itemsScroll.setBorder(null);
+        itemsScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        itemsScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        itemsScroll.setBounds(leftX, itemsTop + 20, leftW, itemsH - 20);
+        overlay.add(itemsScroll);
 
-        ArrayList<Fighter> fullTeam=new ArrayList<>(); fullTeam.add(playerFighter); fullTeam.addAll(capturedTeam);
-        JPanel teamListPanel=new JPanel(); teamListPanel.setOpaque(false); teamListPanel.setLayout(new BoxLayout(teamListPanel,BoxLayout.Y_AXIS));
-        for (int i=0;i<fullTeam.size();i++) {
-            final int ci=i; Fighter f=fullTeam.get(i);
-            boolean isActive=(f==playerFighter),isSel=(selectedCreatureIndex==i);
-            int hp=(int)Math.max(0,f.stats.get(0).value),maxHp=(int)f.stats.get(0).base;
-            float ratio=maxHp>0?(float)hp/maxHp:0;
-            Color barColor=ratio>0.5f?new Color(60,200,60):ratio>0.25f?new Color(220,180,0):new Color(200,50,50);
-            Color borderColor=isSel?new Color(100,180,255):isActive?new Color(200,160,60):new Color(70,50,10);
-            Color bgColor=isSel?new Color(20,40,70):isActive?new Color(60,40,10):new Color(28,18,5);
-            JPanel row=new JPanel(null) {
+        // ── TEAM section header ────────────────────────────────────
+        JLabel teamHeader = new JLabel("TEAM  (" + (capturedTeam.size() + 1) + "/6)");
+        teamHeader.setForeground(new Color(200,155,60));
+        teamHeader.setFont(new Font("Monospaced", Font.BOLD, 12));
+        teamHeader.setBounds(leftX, teamTop, leftW, 16);
+        overlay.add(teamHeader);
+
+        // Divider line between items and team
+        JPanel divLine = new JPanel();
+        divLine.setBackground(new Color(100,70,15));
+        divLine.setBounds(leftX, teamTop - 4, leftW, 1);
+        overlay.add(divLine);
+
+        // ── Build team list ────────────────────────────────────────
+        ArrayList<Fighter> fullTeam = new ArrayList<>();
+        fullTeam.add(playerFighter);
+        fullTeam.addAll(capturedTeam);
+
+        JPanel teamListPanel = new JPanel();
+        teamListPanel.setOpaque(false);
+        teamListPanel.setLayout(new BoxLayout(teamListPanel, BoxLayout.Y_AXIS));
+
+        for (int i = 0; i < fullTeam.size(); i++) {
+            final int ci = i;
+            Fighter f = fullTeam.get(i);
+            boolean isActive = (f == playerFighter), isSel = (selectedCreatureIndex == i);
+            int hp    = (int) Math.max(0, f.stats.get(0).value);
+            int maxHp = (int) f.stats.get(0).base;
+            float ratio = maxHp > 0 ? (float) hp / maxHp : 0;
+            Color barColor    = ratio > 0.5f ? new Color(60,200,60) : ratio > 0.25f ? new Color(220,180,0) : new Color(200,50,50);
+            Color borderColor = isSel ? new Color(100,180,255) : isActive ? new Color(200,160,60) : new Color(70,50,10);
+            Color bgColor     = isSel ? new Color(20,40,70)    : isActive ? new Color(60,40,10)   : new Color(28,18,5);
+
+            JPanel row = new JPanel(null) {
                 @Override protected void paintComponent(Graphics g) {
                     super.paintComponent(g);
-                    Graphics2D g2=(Graphics2D)g;
-                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(bgColor); g2.fillRoundRect(0,0,getWidth(),getHeight(),8,8);
+                    Graphics2D g2 = (Graphics2D) g;
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(bgColor);     g2.fillRoundRect(0,0,getWidth(),getHeight(),8,8);
                     g2.setColor(borderColor); g2.setStroke(new BasicStroke(isSel||isActive?2f:1f)); g2.drawRoundRect(0,0,getWidth()-1,getHeight()-1,8,8);
                     if (isActive) { g2.setColor(new Color(255,215,90)); g2.setFont(new Font("Monospaced",Font.BOLD,13)); g2.drawString("★",8,20); }
                     g2.setColor(isSel?new Color(100,200,255):isActive?new Color(255,215,90):Color.WHITE);
                     g2.setFont(new Font("Monospaced",Font.BOLD,12));
-                    g2.drawString(f.name+" Lv."+f.level,isActive?26:10,20);
+                    g2.drawString(f.name+" Lv."+f.level, isActive?26:10, 20);
                     g2.setColor(new Color(170,170,170)); g2.setFont(new Font("Monospaced",Font.PLAIN,10));
-                    g2.drawString(hp+"/"+maxHp,getWidth()-70,14);
+                    g2.drawString(hp+"/"+maxHp, getWidth()-70, 14);
                     int bx=10,by=24,bw=getWidth()-80,bh=6;
                     g2.setColor(new Color(50,50,50)); g2.fillRoundRect(bx,by,bw,bh,3,3);
-                    g2.setColor(barColor); g2.fillRoundRect(bx,by,(int)(bw*ratio),bh,3,3);
+                    g2.setColor(barColor);            g2.fillRoundRect(bx,by,(int)(bw*ratio),bh,3,3);
                 }
             };
-            row.setOpaque(false); row.setPreferredSize(new Dimension(leftW,38)); row.setMaximumSize(new Dimension(leftW,38));
+            row.setOpaque(false);
+            row.setPreferredSize(new Dimension(leftW, 38));
+            row.setMaximumSize(new Dimension(leftW, 38));
             row.setCursor(new Cursor(Cursor.HAND_CURSOR));
             row.addMouseListener(new MouseAdapter() {
-                @Override public void mouseClicked(MouseEvent e) { selectedCreatureIndex=(selectedCreatureIndex==ci)?-1:ci; selectedIndex=-1; buildBagOverlay("main"); }
+                @Override public void mouseClicked(MouseEvent e) {
+                    selectedCreatureIndex = (selectedCreatureIndex == ci) ? -1 : ci;
+                    selectedIndex = -1;
+                    buildBagOverlay("main");
+                }
             });
-            teamListPanel.add(row); teamListPanel.add(Box.createVerticalStrut(4));
+            teamListPanel.add(row);
+            teamListPanel.add(Box.createVerticalStrut(4));
         }
 
-        JScrollPane teamScroll=new JScrollPane(teamListPanel);
-        teamScroll.setOpaque(false); teamScroll.getViewport().setOpaque(false); teamScroll.setBorder(null);
+        JScrollPane teamScroll = new JScrollPane(teamListPanel);
+        teamScroll.setOpaque(false);
+        teamScroll.getViewport().setOpaque(false);
+        teamScroll.setBorder(null);
         teamScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         teamScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        int teamScrollY=teamHeaderY+20, teamScrollH=winY+winH-60-teamScrollY;
-        teamScroll.setBounds(leftX,teamScrollY,leftW,teamScrollH); overlay.add(teamScroll);
+        teamScroll.setBounds(leftX, teamTop + 20, leftW, teamH - 20);
+        overlay.add(teamScroll);
 
-        int rightX=winX+leftW+48,rightW=winW-leftW-68,rightY=winY+60,rightH=winH-80;
-        JPanel rightPanel=new JPanel(null) {
+        // ── RIGHT panel — item/creature detail ────────────────────
+        int rightY = topY, rightH = totalH;
+        JPanel rightPanel = new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2=(Graphics2D)g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(15,10,4)); g2.fillRoundRect(0,0,getWidth(),getHeight(),12,12);
-                g2.setColor(new Color(100,70,20)); g2.setStroke(new BasicStroke(1.5f)); g2.drawRoundRect(0,0,getWidth(),getHeight(),12,12);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(15,10,4));   g2.fillRoundRect(0,0,getWidth(),getHeight(),12,12);
+                g2.setColor(new Color(100,70,20)); g2.setStroke(new BasicStroke(1.5f)); g2.drawRoundRect(0,0,getWidth()-1,getHeight()-1,12,12);
             }
         };
-        rightPanel.setOpaque(false); rightPanel.setBounds(rightX,rightY,rightW,rightH); overlay.add(rightPanel);
+        rightPanel.setOpaque(false);
+        rightPanel.setBounds(rightX, rightY, rightW, rightH);
+        overlay.add(rightPanel);
 
-        if (selectedCreatureIndex>=0&&selectedCreatureIndex<fullTeam.size())
-            buildCreatureDetailContent(rightPanel,rightW,rightH,fullTeam.get(selectedCreatureIndex));
-        else buildDetailContent(rightPanel,rightW,rightH);
+        if (selectedCreatureIndex >= 0 && selectedCreatureIndex < fullTeam.size())
+            buildCreatureDetailContent(rightPanel, rightW, rightH, fullTeam.get(selectedCreatureIndex));
+        else
+            buildDetailContent(rightPanel, rightW, rightH);
     }
 
     private void buildDetailContent(JPanel panel, int w, int h) {
@@ -2535,7 +2617,7 @@ public class WorldPanel extends JPanel implements Runnable {
             }
             return;
         }
-        if (tileCol==8 && tileRow==14 && tileId==96) {
+        if (tileCol==6 && tileRow==10 && tileId==710) {
             String key = "oldwoman_8_14";
             // Block re-trigger while dialog is open (covers both cured thank-you and quest dialog)
             if (!oldWomanDialogOpen && !lastNpcTileKey.equals(key)) {

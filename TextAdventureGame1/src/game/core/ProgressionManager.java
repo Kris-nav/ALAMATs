@@ -26,7 +26,7 @@ public class ProgressionManager {
         if (gameScene == null) return;
 
         if (sceneIndex == 0) {
-            gameScene.updateDisplay("resources/Texture/sigbin.png", "");
+            gameScene.updateDisplay("resources/Texture/SigbinScene.png", "");
             new Thread(() -> {
                 MonologueManager.runStoryPart1InGUI(gameScene, GameStatus.playerName);
             }).start();
