@@ -806,15 +806,31 @@ public class GameScene extends JFrame {
             JPanel creditsPanel = new JPanel(null) {
                 private int scrollY = 820;
                 private Timer scrollTimer;
+                private long startTime;
+                private boolean isScrolling = true;
 
                 @Override
                 public void addNotify() {
                     super.addNotify();
+                    startTime = System.currentTimeMillis();
                     scrollTimer = new Timer(16, e -> {
-                        scrollY -= 2;
-                        repaint();
-                        if (scrollY < -credits.length * 55) {
+                        long elapsed = System.currentTimeMillis() - startTime;
+
+                        // Calculate scroll speed to complete in 10 seconds
+                        // Total scroll distance = starting position (820) + total height (credits.length * 55)
+                        int totalHeight = credits.length * 55;
+                        int totalDistance = 820 + totalHeight;
+
+                        if (elapsed >= 10000) {
+                            // 10 seconds completed - stop scrolling and return to start screen
                             scrollTimer.stop();
+                            isScrolling = false;
+                            returnToStartScreen();
+                        } else {
+                            // Calculate progress and scroll position
+                            double progress = elapsed / 10000.0;
+                            scrollY = 820 - (int)(totalDistance * progress);
+                            repaint();
                         }
                     });
                     scrollTimer.start();
@@ -835,6 +851,7 @@ public class GameScene extends JFrame {
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                     g2.setColor(Color.BLACK);
                     g2.fillRect(0, 0, getWidth(), getHeight());
+
                     int y = scrollY;
                     for (String line : credits) {
                         if (line.isEmpty()) { y += 20; continue; }
@@ -847,7 +864,7 @@ public class GameScene extends JFrame {
                         } else if (line.startsWith("Project Manager:") || line.startsWith("Front End:") || line.startsWith("Backend:")) {
                             g2.setColor(new Color(150, 220, 150));
                             g2.setFont(new Font("Monospaced", Font.PLAIN, 14));
-                        } else if (line.contains("Sir KHAI") || line.equals("Claude AI") || line.equals("Deepseek") || line.equals("Github") || line.equals("PUNY_MYTH-CREATURES")) {
+                        } else if (line.contains("Sir KHAI") || line.equals("Claude AI") || line.equals("Deepseek") || line.equals("Github") || line.equals("Youtube")|| line.equals("Tiled") || line.equals("PUNY_MYTH-CREATURES")) {
                             g2.setColor(new Color(255, 200, 100));
                             g2.setFont(new Font("Monospaced", Font.PLAIN, 14));
                         } else {
@@ -869,14 +886,9 @@ public class GameScene extends JFrame {
             this.setLocationRelativeTo(null);
             this.revalidate();
             this.repaint();
-
-            // AFTER 10 SECONDS, RETURN TO START SCREEN
-            new Timer(10000, e -> {
-                ((Timer) e.getSource()).stop();
-                returnToStartScreen();
-            }).start();
         });
     }
+
     // ══════════════════════════════════════════════════════════════
     // RETURN TO START SCREEN
     // ══════════════════════════════════════════════════════════════
