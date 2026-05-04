@@ -116,6 +116,17 @@ public class WorldPanel extends JPanel implements Runnable {
     private boolean oldWomanDialogOpen = false;
     private String  lastNpcTileKey     = "";
 
+    // ── World 3 persistent state ───────────────────────────────────
+    private boolean w3HealTriggered    = false;
+    private boolean w3Quest3Triggered  = false;
+    private boolean w3Coin1Found       = false;
+    private boolean w3Coin2Found       = false;
+    private boolean w3Coin3Found       = false;
+    private boolean w3Coin4Found       = false;
+    private boolean w3Coin5Found       = false;
+    private boolean w3Quest3Complete   = false;
+    private boolean w3BossDone         = false;
+
     // ══════════════════════════════════════════════════════════════
     // CONSTRUCTORS
     // ══════════════════════════════════════════════════════════════
@@ -183,12 +194,10 @@ public class WorldPanel extends JPanel implements Runnable {
                 playerCoins, gameStartTime, cooldownUntil,
                 adminMode, caveSceneShown, bossFightDone, portalVisible,
                 mapPath,
-                false);  // FIX 1: post-battle rebuilds always false
+                false);
     }
 
-    // ── MASTER CONSTRUCTOR — all other constructors chain here ─────
-    // FIX 1: isFirstEntry controls whether the World 2 welcome popup shows.
-    //         Only GameScene.switchToWorld2() passes true.
+    // ── MASTER CONSTRUCTOR ─────────────────────────────────────────
     public WorldPanel(GameScene gameScene,
                       int startX, int startY,
                       ArrayList<Fighter> team,
@@ -224,6 +233,8 @@ public class WorldPanel extends JPanel implements Runnable {
 
         if (mapPath.contains("World2")) {
             this.currentTownName = "TOWN 2 — Maghaway";
+        } else if (mapPath.contains("World3")) {
+            this.currentTownName = "TOWN 3 — Manolo Fortich";
         } else {
             this.currentTownName = "TOWN 1 — USA Village";
         }
@@ -244,7 +255,6 @@ public class WorldPanel extends JPanel implements Runnable {
         loadMap(mapPath);
         initSolidTiles();
 
-        // FIX 1: Only show welcome popup on TRUE first entry into World 2
         if (mapPath.contains("World2") && isFirstEntry) {
             SwingUtilities.invokeLater(this::showWorld2WelcomeMessage);
         }
@@ -298,6 +308,7 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     private boolean isWorld2() { return currentMapPath.contains("World2"); }
+    private boolean isWorld3() { return currentMapPath.contains("World3"); }
 
     // ══════════════════════════════════════════════════════════════
     // WORLD 2 WELCOME MESSAGE
@@ -605,7 +616,7 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // FIX 2 — HOVER MESSAGE (fixed sizing so it doesn't overlap UI)
+    // HOVER MESSAGE
     // ══════════════════════════════════════════════════════════════
     private void setHoverMessage(String msg) {
         hoverMessage = msg;
@@ -625,11 +636,10 @@ public class WorldPanel extends JPanel implements Runnable {
         int lineH = 20;
         int pad   = 12;
         int bw    = 900;
-        int bh    = pad * 2 + lines.length * lineH + 4;  // FIX 2: +4 descent buffer
+        int bh    = pad * 2 + lines.length * lineH + 4;
         int bx    = (1280 - bw) / 2;
-        int by    = 720 - bh - 8;  // FIX 2: tight 8px gap from bottom, not 20
+        int by    = 720 - bh - 8;
 
-        // FIX 2: safety clamp — never cover the HUD area at top
         if (by < 500) by = 500;
 
         g2.setColor(new Color(10, 8, 20, 230));
@@ -638,7 +648,7 @@ public class WorldPanel extends JPanel implements Runnable {
         g2.setStroke(new BasicStroke(1.5f));
         g2.drawRoundRect(bx, by, bw, bh, 10, 10);
 
-        g2.setFont(new Font("Monospaced", Font.PLAIN, 12));  // FIX 2: 12px fits more text per line
+        g2.setFont(new Font("Monospaced", Font.PLAIN, 12));
         g2.setColor(new Color(230, 220, 255));
         for (int i = 0; i < lines.length; i++) {
             FontMetrics fm = g2.getFontMetrics();
@@ -649,7 +659,7 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // FIX 3 — MAP OVERLAY with actual map images
+    // MAP OVERLAY
     // ══════════════════════════════════════════════════════════════
     private void openMapOverlay() {
         if (!hasMap) return;
@@ -712,7 +722,6 @@ public class WorldPanel extends JPanel implements Runnable {
         m2Btn.setBounds(260, 60, 200, 36);
         box.add(m1Btn); box.add(m2Btn);
 
-        // FIX 3: Map canvas now renders actual PNG images from resources/
         JPanel mapCanvas = new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
@@ -763,41 +772,29 @@ public class WorldPanel extends JPanel implements Runnable {
         return btn;
     }
 
-    // FIX 3: Renders actual World1.png / World2.png images inside the map overlay
     private void drawMapDiagram(Graphics2D g2, int w, int h, boolean town2) {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-        // Background tint per world
         g2.setColor(town2 ? new Color(10, 30, 60) : new Color(20, 60, 20));
         g2.fillRoundRect(10, 10, w - 20, h - 20, 10, 10);
-
-        // Border
         g2.setColor(town2 ? new Color(60, 100, 200) : new Color(60, 160, 60));
         g2.setStroke(new BasicStroke(1.5f));
         g2.drawRoundRect(10, 10, w - 20, h - 20, 10, 10);
 
-        // FIX 3: Load and draw the actual map image
         String imgPath = town2 ? "resources/World2.png" : "resources/World1.png";
         File imgFile = new File(imgPath);
 
         if (imgFile.exists()) {
             try {
                 BufferedImage mapImg = ImageIO.read(imgFile);
-                int drawX = 14, drawY = 14;
-                int drawW = w - 28, drawH = h - 28;
-                g2.drawImage(mapImg, drawX, drawY, drawW, drawH, null);
+                g2.drawImage(mapImg, 14, 14, w - 28, h - 28, null);
             } catch (Exception ex) {
-                drawMapFallbackLabel(g2, w, h,
-                        town2 ? "Could not load World2.png" : "Could not load World1.png");
+                drawMapFallbackLabel(g2, w, h, town2 ? "Could not load World2.png" : "Could not load World1.png");
             }
         } else {
-            drawMapFallbackLabel(g2, w, h,
-                    town2 ? "Add resources/World2.png to show map" : "Add resources/World1.png to show map");
+            drawMapFallbackLabel(g2, w, h, town2 ? "Add resources/World2.png to show map" : "Add resources/World1.png to show map");
         }
 
-        // "YOU ARE HERE" label on current world tab
         if (town2 == isWorld2()) {
-            // Semi-transparent backing for readability
             FontMetrics fm = g2.getFontMetrics(new Font("Monospaced", Font.BOLD, 13));
             String label = "★ YOU ARE HERE";
             int lw = fm.stringWidth(label) + 16;
@@ -971,12 +968,11 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // WORLD 2 NPC: OLD WOMAN (Quest 2)
+    // WORLD 2 NPC: OLD WOMAN
     // ══════════════════════════════════════════════════════════════
     private void showOldWomanDialog() {
         if (oldWomanCured) {
-            // Show thank-you, then fully unlock tile after message clears
-            oldWomanDialogOpen = true; // keep locked while message shows so tile doesn't re-fire
+            oldWomanDialogOpen = true;
             JPanel overlay = new JPanel(null);
             overlay.setOpaque(false);
             overlay.setBounds(0, 0, 1280, 720);
@@ -1328,21 +1324,17 @@ public class WorldPanel extends JPanel implements Runnable {
             hudCodeInput+=c;
             if (hudCodeInput.equals("PeksonMaster153")) { executeCommand("PeksonMaster153"); hudCodeInput=""; }
             if (hudCodeInput.equals("Skiptown1"))       { executeCommand("Skiptown1"); hudCodeInput=""; }
+            if (hudCodeInput.equals("Skiptown2"))       { executeCommand("Skiptown2"); hudCodeInput=""; }
         }
     }
 
     private void executeCommand(String cmd) {
         switch (cmd) {
-            case "PeksonMaster153":
-                activateAdminMode();
-                break;
-            case "Skiptown1":
-                skipToTown2();
-                break;
+            case "PeksonMaster153": activateAdminMode(); break;
+            case "Skiptown1":       skipToTown2();       break;
+            case "Skiptown2":       skipToTown3();       break;
             default:
-                if (!cmd.isEmpty()) {
-                    showFloatingMessage("Unknown command: " + cmd, new Color(200,100,100));
-                }
+                if (!cmd.isEmpty()) showFloatingMessage("Unknown command: " + cmd, new Color(200,100,100));
                 break;
         }
         hudCodeFocused=false;
@@ -1365,8 +1357,36 @@ public class WorldPanel extends JPanel implements Runnable {
         bossFightDone=true;
         portalVisible=true;
         questCreaturesCaptured=6;
+        antingAntingCount = Math.min(4, antingAntingCount + 1);
+        playerCoins += 900;
         syncStateToGameScene();
-        showFloatingMessage("Skiptown1 — Portal unlocked! Head to the portal!", new Color(180,130,255));
+        showFloatingMessage("Skiptown1 — Teleporting to Town 2...", new Color(180,130,255));
+        new Timer(1500, e -> {
+            ((Timer) e.getSource()).stop();
+            inBattle = true;
+            SwingUtilities.invokeLater(this::enterPortalToWorld2);
+        }).start();
+    }
+
+    private void skipToTown3() {
+        hudCodeInput=""; hudCodeFocused=false;
+        caveSceneShown=true;
+        bossFightDone=true;
+        portalVisible=true;
+        questCreaturesCaptured=6;
+        w2BossDone=true;
+        w2PortalVisible=true;
+        quest2Complete=true;
+        oldWomanCured=true;
+        antingAntingCount = Math.min(4, antingAntingCount + 1);
+        playerCoins += 900;
+        syncStateToGameScene();
+        showFloatingMessage("Skiptown2 — Teleporting to Town 3...", new Color(100,200,255));
+        new Timer(1500, e -> {
+            ((Timer) e.getSource()).stop();
+            inBattle = true;
+            SwingUtilities.invokeLater(this::enterPortalToWorld3);
+        }).start();
     }
 
     private void maxCreatureLevel(Fighter f) {
@@ -1419,10 +1439,9 @@ public class WorldPanel extends JPanel implements Runnable {
     // QUEST PANEL
     // ══════════════════════════════════════════════════════════════
     private void drawQuestPanel(Graphics2D g2) {
-        if (isWorld2()) {
-            drawWorld2QuestPanel(g2);
-            return;
-        }
+        if (isWorld2()) { drawWorld2QuestPanel(g2); return; }
+        if (isWorld3()) { drawWorld3QuestPanel(g2); return; }
+
         if (caveSceneShown && !bossFightDone) {
             int qx=1280-220,qy=10,qw=210,qh=100;
             g2.setColor(new Color(0,0,0,180)); g2.fillRoundRect(qx,qy,qw,qh,12,12);
@@ -1613,19 +1632,13 @@ public class WorldPanel extends JPanel implements Runnable {
         Fighter boss4     = createAmaninhig25();
         Fighter boss5     = createMangkukulam(25);
         ArrayList<Fighter> bossRest = new ArrayList<>();
-        bossRest.add(boss2);
-        bossRest.add(boss3);
-        bossRest.add(boss4);
-        bossRest.add(boss5);
+        bossRest.add(boss2); bossRest.add(boss3); bossRest.add(boss4); bossRest.add(boss5);
         syncStateToGameScene();
         SwingUtilities.invokeLater(() ->
                 gameScene.switchToBossAtOnMap(playerFighter, bossFirst, bossRest,
                         capturedTeam, scrollCount, lunasCount, potionCount,
                         savedX, savedY,
-                        () -> {
-                            w2BossTriggered = false;
-                            antingAntingCount = Math.min(4, antingAntingCount + 1);
-                        },
+                        () -> { w2BossTriggered = false; antingAntingCount = Math.min(4, antingAntingCount + 1); },
                         "resources/World2.tmx")
         );
     }
@@ -1642,10 +1655,8 @@ public class WorldPanel extends JPanel implements Runnable {
         ArrayList<Integer> ul = new ArrayList<>(Arrays.asList(1, 1, 6, 10));
         ArrayList<Stat> stats = new ArrayList<>();
         int extra = 25 - 5;
-        stats.add(new Stat("HP",  210 + extra * 10));
-        stats.add(new Stat("ATK", 100 + extra * 4));
-        stats.add(new Stat("DEF", 110 + extra * 3));
-        stats.add(new Stat("SPD",  55 + extra * 3));
+        stats.add(new Stat("HP",  210 + extra * 10)); stats.add(new Stat("ATK", 100 + extra * 4));
+        stats.add(new Stat("DEF", 110 + extra * 3));  stats.add(new Stat("SPD",  55 + extra * 3));
         return new Fighter("Bungisngis", "/images/Bungisngis.png", "/images/Bungisngis.png", types, stats, allMoves, ul, 25);
     }
 
@@ -1662,10 +1673,8 @@ public class WorldPanel extends JPanel implements Runnable {
         ArrayList<Integer> ul = new ArrayList<>(Arrays.asList(1, 1, 5, 11));
         ArrayList<Stat> stats = new ArrayList<>();
         int extra = 25 - 5;
-        stats.add(new Stat("HP",  195 + extra * 10));
-        stats.add(new Stat("ATK",  90 + extra * 4));
-        stats.add(new Stat("DEF",  95 + extra * 3));
-        stats.add(new Stat("SPD",  80 + extra * 3));
+        stats.add(new Stat("HP",  195 + extra * 10)); stats.add(new Stat("ATK",  90 + extra * 4));
+        stats.add(new Stat("DEF",  95 + extra * 3));  stats.add(new Stat("SPD",  80 + extra * 3));
         return new Fighter("Amongmongo", "/images/Amongmongo.png", "/images/Amongmongo.png", types, stats, allMoves, ul, 25);
     }
 
@@ -1682,10 +1691,8 @@ public class WorldPanel extends JPanel implements Runnable {
         ArrayList<Integer> ul = new ArrayList<>(Arrays.asList(1, 1, 6, 12));
         ArrayList<Stat> stats = new ArrayList<>();
         int extra = 25 - 5;
-        stats.add(new Stat("HP",  165 + extra * 10));
-        stats.add(new Stat("ATK",  95 + extra * 4));
-        stats.add(new Stat("DEF",  70 + extra * 3));
-        stats.add(new Stat("SPD", 100 + extra * 3));
+        stats.add(new Stat("HP",  165 + extra * 10)); stats.add(new Stat("ATK",  95 + extra * 4));
+        stats.add(new Stat("DEF",  70 + extra * 3));  stats.add(new Stat("SPD", 100 + extra * 3));
         return new Fighter("Amaninhig", "/images/Amaranhig.png", "/images/Amaranhig.png", types, stats, allMoves, ul, 25);
     }
 
@@ -1773,7 +1780,7 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // PORTAL CINEMATIC — World 2 transition
+    // PORTAL CINEMATIC — World 2
     // ══════════════════════════════════════════════════════════════
     private void enterPortalToWorld2() {
         JPanel overlay=new JPanel(null) {
@@ -1827,9 +1834,11 @@ public class WorldPanel extends JPanel implements Runnable {
         });
         this.add(overlay); this.setComponentZOrder(overlay,0);
         this.revalidate(); this.repaint();
-    }// ══════════════════════════════════════════════════════════════
-    // PORTAL CINEMATIC — World 3 transition
-// ══════════════════════════════════════════════════════════════
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // PORTAL CINEMATIC — World 3
+    // ══════════════════════════════════════════════════════════════
     private void enterPortalToWorld3() {
         JPanel overlay = new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
@@ -1913,7 +1922,6 @@ public class WorldPanel extends JPanel implements Runnable {
         this.revalidate();
         this.repaint();
     }
-
 
     // ══════════════════════════════════════════════════════════════
     // SHOP (World 1 — Joshua)
@@ -2119,7 +2127,6 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     private void buildMainBagScreen(JPanel overlay, int winX, int winY, int winW, int winH) {
-        // ── Layout constants ───────────────────────────────────────
         final int leftX   = winX + 14;
         final int leftW   = 370;
         final int rightX  = leftX + leftW + 14;
@@ -2127,29 +2134,23 @@ public class WorldPanel extends JPanel implements Runnable {
         final int topY    = winY + 56;
         final int bottomY = winY + winH - 36;
         final int totalH  = bottomY - topY;
-
-        // Split left column: top half = items, bottom half = team
         final int splitH     = totalH / 2;
         final int itemsTop   = topY;
         final int itemsH     = splitH - 10;
         final int teamTop    = topY + splitH;
         final int teamH      = totalH - splitH;
-
         final int rowH = 40, gap = 4;
 
-        // ── ITEMS section header ───────────────────────────────────
         JLabel itemsHeader = new JLabel("ITEMS");
         itemsHeader.setForeground(new Color(200,155,60));
         itemsHeader.setFont(new Font("Monospaced", Font.BOLD, 12));
         itemsHeader.setBounds(leftX, itemsTop, leftW, 16);
         overlay.add(itemsHeader);
 
-        // ── Build item list into a BoxLayout panel ─────────────────
         JPanel itemListPanel = new JPanel();
         itemListPanel.setOpaque(false);
         itemListPanel.setLayout(new BoxLayout(itemListPanel, BoxLayout.Y_AXIS));
 
-        // Basic items
         String[] iNames  = {"Scroll","Lunas","Potion"};
         int[]    iCounts = {scrollCount, lunasCount, potionCount};
         Color[]  iColors = {new Color(140,70,200), new Color(60,180,100), new Color(60,140,220)};
@@ -2168,7 +2169,6 @@ public class WorldPanel extends JPanel implements Runnable {
             itemListPanel.add(Box.createVerticalStrut(gap));
         }
 
-        // World 2 super items + Anting2
         if (isWorld2()) {
             String[] w2Names  = {"Super Lunas","Super Potion","Super Scroll"};
             int[]    w2Counts = {superLunasCount, superPotionCount, superScrollCount};
@@ -2212,20 +2212,17 @@ public class WorldPanel extends JPanel implements Runnable {
         itemsScroll.setBounds(leftX, itemsTop + 20, leftW, itemsH - 20);
         overlay.add(itemsScroll);
 
-        // ── TEAM section header ────────────────────────────────────
         JLabel teamHeader = new JLabel("TEAM  (" + (capturedTeam.size() + 1) + "/6)");
         teamHeader.setForeground(new Color(200,155,60));
         teamHeader.setFont(new Font("Monospaced", Font.BOLD, 12));
         teamHeader.setBounds(leftX, teamTop, leftW, 16);
         overlay.add(teamHeader);
 
-        // Divider line between items and team
         JPanel divLine = new JPanel();
         divLine.setBackground(new Color(100,70,15));
         divLine.setBounds(leftX, teamTop - 4, leftW, 1);
         overlay.add(divLine);
 
-        // ── Build team list ────────────────────────────────────────
         ArrayList<Fighter> fullTeam = new ArrayList<>();
         fullTeam.add(playerFighter);
         fullTeam.addAll(capturedTeam);
@@ -2287,7 +2284,6 @@ public class WorldPanel extends JPanel implements Runnable {
         teamScroll.setBounds(leftX, teamTop + 20, leftW, teamH - 20);
         overlay.add(teamScroll);
 
-        // ── RIGHT panel — item/creature detail ────────────────────
         int rightY = topY, rightH = totalH;
         JPanel rightPanel = new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
@@ -2553,6 +2549,16 @@ public class WorldPanel extends JPanel implements Runnable {
         }
     }
 
+    private Fighter randomWorld3Creature() {
+        int level = 15 + coinRand.nextInt(10);
+        switch (coinRand.nextInt(4)) {
+            case 0: return Create.createKapre(level);
+            case 1: return Create.createEkek(level);
+            case 2: return createSirena(level);
+            default: return createMangkukulam(level);
+        }
+    }
+
     private Fighter createSirena(int level) {
         Type WATER=new Type("Water",0x4488FF); Type SPIRIT=new Type("Spirit",0xAADDFF);
         ArrayList<Type> types=new ArrayList<>(Arrays.asList(WATER,SPIRIT));
@@ -2628,10 +2634,18 @@ public class WorldPanel extends JPanel implements Runnable {
                 lastNpcTileKey = "";
             }
         }
+
+        // ── Route to world-specific tile handlers ─────────────────
         if (isWorld2()) {
             handleWorld2Tiles(tileCol, tileRow, tileId);
             return;
         }
+        if (isWorld3()) {
+            handleWorld3Tiles(tileCol, tileRow, tileId);
+            return;
+        }
+
+        // ── World 1 tile handling ──────────────────────────────────
         if (tileId==709&&!caveSceneShown&&!showCaveScene) { SwingUtilities.invokeLater(this::showCaveScene); return; }
         if (tileId==908&&!bossFightDone&&!bossTriggered) { SwingUtilities.invokeLater(this::triggerBossFight); return; }
         if (tileId==758) {
@@ -2680,9 +2694,7 @@ public class WorldPanel extends JPanel implements Runnable {
             return;
         }
         if (tileCol==14 && tileRow==23 && tileId==980) {
-            if (!w2ShopOpen && !showBag) {
-                SwingUtilities.invokeLater(this::openWorld2Shop);
-            }
+            if (!w2ShopOpen && !showBag) SwingUtilities.invokeLater(this::openWorld2Shop);
             return;
         }
         if (tileCol==9 && tileRow==26 && tileId==676) {
@@ -2705,13 +2717,12 @@ public class WorldPanel extends JPanel implements Runnable {
         }
         if (tileCol==6 && tileRow==10 && tileId==710) {
             String key = "oldwoman_8_14";
-            // Block re-trigger while dialog is open (covers both cured thank-you and quest dialog)
             if (!oldWomanDialogOpen && !lastNpcTileKey.equals(key)) {
                 lastNpcTileKey = key;
                 oldWomanDialogOpen = true;
                 SwingUtilities.invokeLater(this::showOldWomanDialog);
             }
-            return;  // always return — never fall through to encounter check
+            return;
         }
         if (tileCol==23 && tileRow==13 && tileId==846) {
             setHoverMessage("Beware an evil albularyo is at top he curses people in this village and ask tons of coins to heal them");
@@ -2726,9 +2737,7 @@ public class WorldPanel extends JPanel implements Runnable {
             return;
         }
         if (tileCol==21 && tileRow==11 && tileId==812) {
-            if (w2BossDone && !w2PortalVisible) {
-                w2PortalVisible = true;
-            }
+            if (w2BossDone && !w2PortalVisible) w2PortalVisible = true;
             if (w2PortalVisible) {
                 if (!inBattle) {
                     inBattle = true;
@@ -2754,6 +2763,298 @@ public class WorldPanel extends JPanel implements Runnable {
         if (tileId==897 && !w2ShopOpen && !showBag) {
             SwingUtilities.invokeLater(this::openWorld2Shop);
         }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // WORLD 3 TILE HANDLING
+    // ══════════════════════════════════════════════════════════════
+    private void handleWorld3Tiles(int tileCol, int tileRow, int tileId) {
+        // Healing pond
+        if (tileCol==24 && tileRow==38 && tileId==676) {
+            if (!w3HealTriggered) {
+                w3HealTriggered = true;
+                healAllCreatures();
+                SwingUtilities.invokeLater(() -> showFloatingMessage(
+                        "The pond restored all your creatures' HP and PP!", new Color(80, 200, 255)));
+            }
+        } else {
+            w3HealTriggered = false;
+        }
+
+        // Quest trigger tile
+        if (tileCol==23 && tileRow==38 && tileId==788) {
+            if (!w3Quest3Triggered) {
+                w3Quest3Triggered = true;
+                SwingUtilities.invokeLater(this::showWorld3QuestIntro);
+            } else {
+                setHoverMessage("QUEST 3: Collect 5 Silver Coins from the wells\nand level 6 creatures to Lv.30!");
+            }
+            return;
+        }
+
+        // Well 1 — col=32, row=39, tileId=1004
+        if (tileCol==32 && tileRow==39 && tileId==1004) {
+            if (!w3Coin1Found) {
+                setHoverMessage("★ Collect the silver coin inside the well!");
+                w3Coin1Found = true;
+                SwingUtilities.invokeLater(() -> showCoinCollected(1));
+                checkWorld3QuestComplete();
+            } else {
+                setHoverMessage("✓ Silver coin already collected here.");
+            }
+            return;
+        }
+
+        // Well 2 — col=32, row=16, tileId=815
+        if (tileCol==32 && tileRow==16 && tileId==815) {
+            if (!w3Coin2Found) {
+                setHoverMessage("★ Collect the silver coin inside the well!");
+                w3Coin2Found = true;
+                SwingUtilities.invokeLater(() -> showCoinCollected(2));
+                checkWorld3QuestComplete();
+            } else {
+                setHoverMessage("✓ Silver coin already collected here.");
+            }
+            return;
+        }
+
+        // Well 3 — col=29, row=1, tileId=1014
+        if (tileCol==29 && tileRow==1 && tileId==1014) {
+            if (!w3Coin3Found) {
+                setHoverMessage("★ Collect the silver coin inside the well!");
+                w3Coin3Found = true;
+                SwingUtilities.invokeLater(() -> showCoinCollected(3));
+                checkWorld3QuestComplete();
+            } else {
+                setHoverMessage("✓ Silver coin already collected here.");
+            }
+            return;
+        }
+
+        // Well 4 — col=16, row=39, tileId=1004
+        if (tileCol==16 && tileRow==39 && tileId==1004) {
+            if (!w3Coin4Found) {
+                setHoverMessage("★ Collect the silver coin inside the well!");
+                w3Coin4Found = true;
+                SwingUtilities.invokeLater(() -> showCoinCollected(4));
+                checkWorld3QuestComplete();
+            } else {
+                setHoverMessage("✓ Silver coin already collected here.");
+            }
+            return;
+        }
+
+        // Well 5 — col=0, row=18, tileId=815
+        if (tileCol==0 && tileRow==18 && tileId==815) {
+            if (!w3Coin5Found) {
+                setHoverMessage("★ Collect the silver coin inside the well!");
+                w3Coin5Found = true;
+                SwingUtilities.invokeLater(() -> showCoinCollected(5));
+                checkWorld3QuestComplete();
+            } else {
+                setHoverMessage("✓ Silver coin already collected here.");
+            }
+            return;
+        }
+
+        // Boss tile — col=40, row=0, tileId=129
+        if (tileCol==40 && tileRow==0 && tileId==129) {
+            if (!w3Quest3Complete) {
+                setHoverMessage("You are not ready!\nComplete Quest 3 first before facing the boss.");
+            } else if (w3BossDone) {
+                setHoverMessage("You have already defeated the Town 3 Albularyo!");
+            } else {
+                setHoverMessage("★ THE ALBULARYO AWAITS!\nBoss fight coming soon...");
+            }
+            return;
+        }
+
+        // Wild encounters
+        if (tileId==758) {
+            if (Math.random() > 0.05) return;
+            inBattle = true;
+            int savedX = playerX, savedY = playerY;
+            Fighter wild = randomWorld3Creature();
+            syncStateToGameScene();
+            SwingUtilities.invokeLater(() ->
+                    gameScene.switchToBattleOnMap(playerFighter, wild, capturedTeam,
+                            scrollCount, lunasCount, potionCount,
+                            savedX, savedY, currentMapPath));
+        }
+    }
+
+    private void checkWorld3QuestComplete() {
+        if (w3Quest3Complete) return;
+        boolean allCoins = w3Coin1Found && w3Coin2Found && w3Coin3Found && w3Coin4Found && w3Coin5Found;
+        boolean sixAtLv30 = checkCreaturesAtLevel(30, 6);
+        if (allCoins && sixAtLv30) {
+            w3Quest3Complete = true;
+            SwingUtilities.invokeLater(() ->
+                    showFloatingMessage("Quest 3 Complete! Go face the Albularyo boss!", new Color(100, 255, 150)));
+        }
+    }
+
+    private boolean checkCreaturesAtLevel(int level, int needed) {
+        int count = 0;
+        if (playerFighter.level >= level) count++;
+        for (Fighter f : capturedTeam) if (f.level >= level) count++;
+        return count >= needed;
+    }
+
+    private void showCoinCollected(int coinNumber) {
+        int coinsFound = (w3Coin1Found?1:0)+(w3Coin2Found?1:0)+(w3Coin3Found?1:0)
+                + (w3Coin4Found?1:0)+(w3Coin5Found?1:0);
+        showFloatingMessage("Silver Coin #" + coinNumber + " collected! (" + coinsFound + "/5)", new Color(255, 215, 50));
+    }
+
+    private void showWorld3QuestIntro() {
+        JPanel overlay = new JPanel(null) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setColor(new Color(0, 0, 0, 200));
+                g2.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+        overlay.setOpaque(false);
+        overlay.setBounds(0, 0, 1280, 720);
+
+        int bw = 860, bh = 360, bx = (1280-bw)/2, by = (720-bh)/2;
+        JPanel box = new JPanel(null) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(10, 8, 20));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+                g2.setColor(new Color(200, 160, 50));
+                g2.setStroke(new BasicStroke(3));
+                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 16, 16);
+                g2.setColor(new Color(50, 38, 8));
+                g2.fillRoundRect(0, 0, getWidth(), 46, 16, 16);
+                g2.fillRect(0, 26, getWidth(), 20);
+                g2.setColor(new Color(255, 215, 90));
+                g2.setFont(new Font("Monospaced", Font.BOLD, 18));
+                FontMetrics fm = g2.getFontMetrics();
+                String t = "★  QUEST 3  ★";
+                g2.drawString(t, (getWidth()-fm.stringWidth(t))/2, 33);
+            }
+        };
+        box.setOpaque(false);
+        box.setBounds(bx, by, bw, bh);
+
+        String[] lines = {
+                "Welcome to Manolo Fortich, " + playerName + "!",
+                "This town has been cursed by the most powerful Albularyo yet.",
+                "",
+                "The elder has given you a task before you can face the boss:",
+                "Find the 5 Silver Coins hidden inside the wells around town.",
+                "They hold the power to weaken the Albularyo's curse.",
+                "",
+                "You must also level up 6 of your creatures to Lv.30",
+                "to prove you are strong enough for this battle!"
+        };
+        Color[] lineColors = {
+                new Color(255, 215, 90), new Color(255, 160, 160), Color.WHITE,
+                new Color(200, 200, 200), new Color(100, 220, 255), new Color(180, 180, 180),
+                Color.WHITE, new Color(100, 255, 150), new Color(100, 255, 150)
+        };
+
+        int ly = 56;
+        for (int i = 0; i < lines.length; i++) {
+            if (lines[i].isEmpty()) { ly += 12; continue; }
+            JLabel lbl = new JLabel(lines[i]);
+            lbl.setForeground(lineColors[i]);
+            lbl.setFont(new Font("Monospaced", i==0 ? Font.BOLD : Font.PLAIN, i==0 ? 14 : 13));
+            lbl.setBounds(20, ly, bw-40, 20);
+            box.add(lbl);
+            ly += 22;
+        }
+
+        final JPanel fOverlay = overlay;
+        JButton btn = new JButton("Let's do this!");
+        btn.setBackground(new Color(60, 130, 60));
+        btn.setForeground(Color.WHITE);
+        btn.setFont(new Font("Monospaced", Font.BOLD, 14));
+        btn.setFocusPainted(false);
+        btn.setBorder(BorderFactory.createLineBorder(new Color(100, 220, 100), 2));
+        btn.setBounds(bw/2-100, bh-56, 200, 38);
+        btn.addActionListener(e -> {
+            WorldPanel.this.remove(fOverlay);
+            WorldPanel.this.revalidate();
+            WorldPanel.this.repaint();
+            requestFocusInWindow();
+        });
+        box.add(btn);
+        overlay.add(box);
+        this.add(overlay);
+        this.setComponentZOrder(overlay, 0);
+        this.revalidate();
+        this.repaint();
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // WORLD 3 QUEST PANEL
+    // ══════════════════════════════════════════════════════════════
+    private void drawWorld3QuestPanel(Graphics2D g2) {
+        if (!w3Quest3Triggered) return;
+        int coinsFound = (w3Coin1Found?1:0)+(w3Coin2Found?1:0)+(w3Coin3Found?1:0)
+                + (w3Coin4Found?1:0)+(w3Coin5Found?1:0);
+        boolean sixAtLv30 = checkCreaturesAtLevel(30, 6);
+
+        int qx = 1280-240, qy = 10, qw = 230, qh = w3Quest3Complete ? 80 : 120;
+
+        g2.setColor(new Color(0, 0, 0, 180));
+        g2.fillRoundRect(qx, qy, qw, qh, 12, 12);
+        g2.setColor(w3Quest3Complete ? new Color(80, 200, 80) : new Color(200, 160, 50));
+        g2.setStroke(new BasicStroke(2));
+        g2.drawRoundRect(qx, qy, qw, qh, 12, 12);
+
+        g2.setColor(new Color(255, 215, 90));
+        g2.setFont(new Font("Monospaced", Font.BOLD, 11));
+        g2.drawString("QUEST 3", qx+8, qy+18);
+
+        if (w3Quest3Complete) {
+            g2.setColor(new Color(100, 255, 100));
+            g2.setFont(new Font("Monospaced", Font.BOLD, 10));
+            g2.drawString("✓ Quest Complete!", qx+8, qy+38);
+            g2.setColor(new Color(255, 160, 80));
+            g2.drawString("Go fight the Albularyo!", qx+8, qy+56);
+        } else {
+            g2.setColor(coinsFound >= 5 ? new Color(100,255,100) : new Color(200,200,200));
+            g2.setFont(new Font("Monospaced", Font.PLAIN, 10));
+            g2.drawString((coinsFound>=5?"✓ ":"• ") + "Silver Coins ("+coinsFound+"/5)", qx+8, qy+36);
+            g2.setColor(sixAtLv30 ? new Color(100,255,100) : new Color(200,200,200));
+            int current6 = Math.min(6,
+                    (playerFighter.level>=30?1:0) +
+                            (int)capturedTeam.stream().filter(f->f.level>=30).count());
+            g2.drawString((sixAtLv30?"✓ ":"• ") + "6 creatures Lv.30 ("+current6+"/6)", qx+8, qy+54);
+            g2.setColor(new Color(255, 160, 80));
+            g2.setFont(new Font("Monospaced", Font.BOLD, 10));
+            g2.drawString("Find all wells around town!", qx+8, qy+78);
+            g2.drawString("& train your creatures!", qx+8, qy+92);
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // WORLD 3 BOSS INDICATOR
+    // ══════════════════════════════════════════════════════════════
+    private void drawWorld3BossIndicator(Graphics2D g2) {
+        if (w3BossDone) return;
+        int tileX = 40 * TILE_DISPLAY_SIZE - cameraX;
+        int tileY = 0  * TILE_DISPLAY_SIZE - cameraY;
+        if (tileX+TILE_DISPLAY_SIZE<0||tileX>1280||tileY+TILE_DISPLAY_SIZE<0||tileY>720) return;
+        long t = System.currentTimeMillis();
+        float pulse = (float)(Math.sin(t/400.0)*0.3+0.7);
+        int cx = tileX + TILE_DISPLAY_SIZE/2;
+        int cy = tileY + TILE_DISPLAY_SIZE/2;
+        g2.setColor(new Color(255, 50, 50, (int)(80*pulse)));
+        g2.fillOval(cx-28, cy-28, 56, 56);
+        g2.setColor(new Color(255, 100, 100));
+        g2.setFont(new Font("Monospaced", Font.BOLD, 10));
+        FontMetrics fm = g2.getFontMetrics();
+        String label = w3Quest3Complete ? "BOSS ▶" : "BOSS (Locked)";
+        g2.drawString(label, cx-fm.stringWidth(label)/2, tileY-4);
     }
 
     public void start() {
@@ -2817,6 +3118,7 @@ public class WorldPanel extends JPanel implements Runnable {
                     }
             drawPortal(g2);
             if (isWorld2()) drawWorld2Portal(g2);
+            if (isWorld3()) drawWorld3BossIndicator(g2);
             int px=playerX-cameraX,py=playerY-cameraY;
             if (playerSheet!=null) {
                 int fw=25,fh=25;
