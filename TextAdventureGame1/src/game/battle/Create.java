@@ -62,6 +62,31 @@ public class Create {
                 "/images/Santelmo.png", "/images/Santelmo.png",
                 types, stats(185, 95, 80, 90, level), all, lvls, level);
     }
+    public static Fighter createKhaibalang() {
+        Type GRASS   = new Type("Grass",   0x55cb0b);
+        Type PSYCHIC = new Type("Psychic", 0xc612ce);
+        Type GHOST   = new Type("Ghost",   0x480ec1);
+        Type NORMAL  = new Type("Normal",  0xAAAAAA);
+
+        ArrayList<Move> all = new ArrayList<>(Arrays.asList(
+                mv("Jabi",        GRASS,    0,   8),   // healing
+                mv("Word of Day", PSYCHIC, 100, 10),   // 12% crit
+                mv("Say Stop",    GHOST,    0,   7),   // 70% chance stop
+                mv("Stomp",       NORMAL,  80,  10)    // 20% crit
+        ));
+        ArrayList<Integer> lvls = new ArrayList<>(Arrays.asList(1, 1, 1, 1));
+
+        ArrayList<Stat> stats = new ArrayList<>();
+        stats.add(new Stat("HP",  767));
+        stats.add(new Stat("ATK", 286));
+        stats.add(new Stat("DEF", 300));
+        stats.add(new Stat("SPD", 189));
+
+        return new Fighter("KHAIBALANG",
+                "/images/Khaibalang.png", "/images/Khaibalang.png",
+                new ArrayList<>(Arrays.asList(GHOST, PSYCHIC)),
+                stats, all, lvls, 60);
+    }
 
     // ══════════════════════════════════════════════════════════════
     // WILD CREATURES — random level 3-7

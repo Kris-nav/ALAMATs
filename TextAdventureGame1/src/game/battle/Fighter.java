@@ -17,15 +17,14 @@ public class Fighter {
     public int exp;
     public int expToNext;
 
-    public boolean fainted = false;
-    public String  message = "";
+    public boolean fainted   = false;
+    public boolean isStunned = false;
+    public String  message   = "";
 
-    // ✅ EXP needed to go from this level to next
     public static int expNeeded(int fromLevel) {
         return Math.max(80, 80 + (fromLevel - 5) * 20);
     }
 
-    // ✅ Full constructor with leveling + locked moves
     public Fighter(String name, String sprite, String back_sprite,
                    ArrayList<Type> types,
                    ArrayList<Stat> stats,
@@ -43,29 +42,26 @@ public class Fighter {
         this.exp              = 0;
         this.expToNext        = expNeeded(level);
 
-        // ✅ Build moveset — all 4 slots with real names, locked ones marked
         this.moveset = new ArrayList<>();
         for (int i = 0; i < allMoves.size() && this.moveset.size() < 4; i++) {
             Move m   = allMoves.get(i);
             int  req = (i < moveUnlockLevels.size()) ? moveUnlockLevels.get(i) : 1;
             Move copy = new Move(m.name, m.type, m.damage, m.stat_changes, m.maxPp);
             if (level < req) {
-                copy.lockedUntilLevel = req; // locked — shows name but can't use
-                copy.pp    = 0;
+                copy.lockedUntilLevel = req;
+                copy.pp = 0;
             }
             this.moveset.add(copy);
         }
 
-        // Pad remaining slots to 4 if fewer than 4 moves defined
         while (this.moveset.size() < 4) {
             Type normalType = new Type("Normal", 0xAAAAAA);
             Move pad = new Move("---", normalType, 0, new ArrayList<>(), 1);
-            pad.lockedUntilLevel = 999; // permanently locked placeholder
+            pad.lockedUntilLevel = 999;
             this.moveset.add(pad);
         }
     }
 
-    // ✅ Legacy constructor (all moves immediately available, no unlock levels)
     public Fighter(String name, String sprite, String back_sprite,
                    ArrayList<Type> types,
                    ArrayList<Stat> stats,
@@ -84,7 +80,6 @@ public class Fighter {
         this.expToNext = expNeeded(5);
     }
 
-    // ✅ Gain EXP, handle level ups, return newly unlocked move names
     public List<String> gainExp(int amount) {
         List<String> newMoves = new ArrayList<>();
         exp += amount;
@@ -105,22 +100,19 @@ public class Fighter {
         if (stats.size() > 3) { stats.get(3).base += 3;  stats.get(3).value += 3;  }
     }
 
-    // ✅ Unlock moves that become available at the new level
     private List<String> checkNewMoves() {
         List<String> unlocked = new ArrayList<>();
 
-        // Unlock any locked moves in current moveset
         for (int i = 0; i < moveset.size(); i++) {
             Move mv = moveset.get(i);
             if (mv.isLocked() && mv.lockedUntilLevel != 999
                     && level >= mv.lockedUntilLevel) {
                 mv.lockedUntilLevel = 0;
-                mv.pp    = mv.maxPp;
+                mv.pp = mv.maxPp;
                 unlocked.add(mv.name);
             }
         }
 
-        // Check allMoves for any not yet in moveset (5th+ moves)
         for (int i = 0; i < allMoves.size(); i++) {
             int req = (i < moveUnlockLevels.size()) ? moveUnlockLevels.get(i) : 1;
             if (level == req) {
@@ -128,7 +120,6 @@ public class Fighter {
                 boolean already = moveset.stream()
                         .anyMatch(mv -> mv.name.equals(m.name));
                 if (!already) {
-                    // Replace a placeholder "---" slot if available
                     boolean replaced = false;
                     for (int s = 0; s < moveset.size(); s++) {
                         if (moveset.get(s).name.equals("---")) {
@@ -151,7 +142,6 @@ public class Fighter {
         return unlocked;
     }
 
-    // ✅ Type effectiveness
     public double getTypeMultiplier(String atkType, String defType) {
         switch (atkType) {
             case "Fire":
@@ -190,6 +180,26 @@ public class Fighter {
         Move move = moveset.get(moveIndex);
         if (move.isLocked()) return;
 
+        // ── JABI: restore 50% of max HP ───────────────────────────
+        if (move.name.equals("Jabi")) {
+            double heal = stats.get(0).base * 0.50;
+            stats.get(0).value = Math.min(stats.get(0).base,
+                    stats.get(0).value + heal);
+            message = "KHAIBALANG ate Jabi and restored HP!";
+            return;
+        }
+
+        // ── SAY STOP: 70% chance to stun target ───────────────────
+        if (move.name.equals("Say Stop")) {
+            if (Math.random() < 0.70) {
+                target.isStunned = true;
+                message = target.name + " was stopped by Say Stop!";
+            } else {
+                message = "Say Stop had no effect!";
+            }
+            return;
+        }
+
         double effectiveness = 1.0;
         if (target.types != null && move.type != null) {
             for (Type defType : target.types) {
@@ -206,25 +216,52 @@ public class Fighter {
         double randomFactor = 0.85 + Math.random() * 0.15;
         double atkStat      = stats.size() > 1 ? stats.get(1).value : 100;
         double defStat      = target.stats.size() > 2 ? target.stats.get(2).value : 100;
+
+        // ── Crit chance for Word of Day (12%) and Stomp (20%) ─────
+        double critMult = 1.0;
+        if (move.name.equals("Word of Day") && Math.random() < 0.12) {
+            critMult = 1.5;
+            message  = "A critical Word of Day!";
+        }
+        if (move.name.equals("Stomp") && Math.random() < 0.20) {
+            critMult = 1.5;
+            message  = "A critical Stomp!";
+        }
+
         double damage = move.damage * levelBonus * effectiveness
-                * randomFactor * (atkStat / Math.max(1, defStat));
+                * randomFactor * critMult * (atkStat / Math.max(1, defStat));
         damage = Math.max(1, damage);
 
-        target.stats.get(0).value = Math.max(0, target.stats.get(0).value - damage);
+        target.stats.get(0).value = Math.max(0,
+                target.stats.get(0).value - damage);
 
-        if (effectiveness > 1.0)      message = "It's super effective!";
-        else if (effectiveness < 1.0) message = "It's not very effective...";
+        if (critMult == 1.0) {
+            if (effectiveness > 1.0)      message = "It's super effective!";
+            else if (effectiveness < 1.0) message = "It's not very effective...";
+        }
 
         if (target.stats.get(0).value <= 0) target.fainted = true;
 
         if (move.stat_changes != null) {
-            for (int i = 0; i < move.stat_changes.size() && i + 1 < stats.size(); i++) {
+            for (int i = 0; i < move.stat_changes.size()
+                    && i + 1 < stats.size(); i++) {
                 stats.get(i + 1).value *= (1.0 + move.stat_changes.get(i));
             }
         }
     }
 
     public int chooseMove(Fighter target) {
+        // Khaibalang AI: use Jabi when HP below 40%
+        if (name.equals("KHAIBALANG")) {
+            double hpRatio = stats.get(0).value / stats.get(0).base;
+            if (hpRatio < 0.40) {
+                for (int i = 0; i < moveset.size(); i++) {
+                    if (moveset.get(i).name.equals("Jabi")
+                            && moveset.get(i).pp > 0) return i;
+                }
+            }
+        }
+
         ArrayList<Integer> available = new ArrayList<>();
         for (int i = 0; i < moveset.size(); i++) {
             Move m = moveset.get(i);
@@ -232,7 +269,8 @@ public class Fighter {
         }
         if (available.isEmpty()) {
             for (int i = 0; i < moveset.size(); i++) {
-                if (!moveset.get(i).isLocked() && moveset.get(i).pp > 0) return i;
+                if (!moveset.get(i).isLocked()
+                        && moveset.get(i).pp > 0) return i;
             }
             return 0;
         }

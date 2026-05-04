@@ -18,6 +18,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
+import java.awt.Color;
+import javax.swing.Timer;
+
 
 public class WorldPanel extends JPanel implements Runnable {
     private Thread gameThread;
@@ -126,6 +129,7 @@ public class WorldPanel extends JPanel implements Runnable {
     private boolean w3Coin5Found       = false;
     private boolean w3Quest3Complete   = false;
     private boolean w3BossDone        = false;
+    private boolean khaibalangDefeated = false;
 
     // ══════════════════════════════════════════════════════════════
     // CONSTRUCTORS
@@ -259,6 +263,31 @@ public class WorldPanel extends JPanel implements Runnable {
             SwingUtilities.invokeLater(this::showWorld2WelcomeMessage);
         }
     }
+    public void showFloatingMessagePublic(String msg, Color color) {
+        showFloatingMessage(msg, color);
+    }
+    public void syncStateToGameScenePublic() {
+        syncStateToGameScene();
+    }
+    public void showKhaiDialogPublic() {
+        showKhaiDialog();
+    }
+
+    public void showFinalChoicePublic(String pName) {
+        showFinalChoice(pName);
+    }
+
+    public Fighter getPlayerFighter() {
+        return playerFighter;
+    }
+
+    public ArrayList<Fighter> getCapturedTeam() {
+        return capturedTeam;
+    }
+
+    public int getScrollCount()  { return scrollCount; }
+    public int getLunasCount()   { return lunasCount; }
+    public int getPotionCount()  { return potionCount; }
 
     public int  getPlayerCoins()                { return playerCoins; }
     public void addCoins(int amount)            { playerCoins += amount; }
@@ -1032,6 +1061,15 @@ public class WorldPanel extends JPanel implements Runnable {
         this.setComponentZOrder(overlay, 0);
         this.revalidate(); this.repaint();
     }
+    // ── Pending Khaibalang rematch ─────────────────────────────────
+    private Fighter pendingKhaibalang = null;
+    private String  pendingKhaiPName  = null;
+
+    public void setPendingKhaibalang(Fighter khai, String pName) {
+        this.pendingKhaibalang = khai;
+        this.pendingKhaiPName  = pName;
+    }
+
 
     // ══════════════════════════════════════════════════════════════
     // WORLD 2 NPC: OLD WOMAN
@@ -1395,6 +1433,20 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     private void executeCommand(String cmd) {
+        // NEW CHEAT COMMANDS - ADD THESE FIRST
+        if (cmd.equalsIgnoreCase("skipTown3Boss") || cmd.equalsIgnoreCase("town3boss")) {
+            gameScene.cheatSkipTown3Boss(this);
+            hudCodeFocused = false;
+            return;
+        }
+
+        if (cmd.equalsIgnoreCase("skipKhaibalang") || cmd.equalsIgnoreCase("khaibalang")) {
+            gameScene.cheatSkipKhaibalang(this);
+            hudCodeFocused = false;
+            return;
+        }
+
+        // Existing commands
         switch (cmd) {
             case "PeksonMaster153": activateAdminMode(); break;
             case "Skiptown1":       skipToTown2();       break;
@@ -1741,6 +1793,254 @@ public class WorldPanel extends JPanel implements Runnable {
                         "resources/World3.tmx")
         );
     }
+    private void showKhaiDialog() {
+        JPanel overlay = new JPanel(null) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setColor(new Color(0, 0, 0, 220));
+                g2.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+        overlay.setOpaque(false);
+        overlay.setBounds(0, 0, 1280, 720);
+
+        int bw = 900, bh = 320, bx = (1280-bw)/2, by = (720-bh)/2;
+        JPanel box = new JPanel(null) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(10, 8, 20));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+                g2.setColor(new Color(180, 60, 60));
+                g2.setStroke(new BasicStroke(3));
+                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 16, 16);
+            }
+        };
+        box.setOpaque(false);
+        box.setBounds(bx, by, bw, bh);
+
+        String[] lines = {
+                "Hey " + playerName + "... it's me, Sir Khai.",
+                "I'm sorry for what I have done.",
+                "I regret everything now...",
+                "",
+                "*A horse screams in the distance*",
+                "",
+                "Tikbalang: YOU HAVE FAILED ME KHAI!!!",
+                "I will eat your soul and finish " + playerName + " myself!!!"
+        };
+        Color[] colors = {
+                new Color(200, 220, 255), new Color(180, 180, 255),
+                new Color(180, 180, 255), Color.WHITE,
+                new Color(255, 215, 90), Color.WHITE,
+                new Color(255, 80, 80), new Color(255, 80, 80)
+        };
+
+        int ly = 24;
+        for (int i = 0; i < lines.length; i++) {
+            if (lines[i].isEmpty()) { ly += 10; continue; }
+            JLabel lbl = new JLabel(lines[i]);
+            lbl.setForeground(colors[i]);
+            lbl.setFont(new Font("Monospaced",
+                    lines[i].startsWith("Tikbalang") ? Font.BOLD : Font.PLAIN,
+                    lines[i].startsWith("Tikbalang") ? 15 : 13));
+            lbl.setBounds(20, ly, bw-40, 20);
+            box.add(lbl);
+            ly += 22;
+        }
+
+        final JPanel fOverlay = overlay;
+        JButton btn = new JButton("FACE KHAIBALANG!");
+        btn.setBackground(new Color(140, 20, 20));
+        btn.setForeground(Color.WHITE);
+        btn.setFont(new Font("Monospaced", Font.BOLD, 14));
+        btn.setFocusPainted(false);
+        btn.setBorder(BorderFactory.createLineBorder(new Color(255, 80, 80), 2));
+        btn.setBounds(bw/2-120, bh-56, 240, 38);
+        btn.addActionListener(e -> {
+            WorldPanel.this.remove(fOverlay);
+            WorldPanel.this.revalidate();
+            WorldPanel.this.repaint();
+            triggerKhaibalang();
+        });
+        box.add(btn);
+        overlay.add(box);
+        this.add(overlay);
+        this.setComponentZOrder(overlay, 0);
+        this.revalidate();
+        this.repaint();
+    }
+    private void triggerKhaibalang() {
+        inBattle = true;
+        // Heal player first for the rematch mechanic
+        healAllCreatures();
+
+        Fighter khaibalang = Create.createKhaibalang();
+        int savedX = playerX, savedY = playerY;
+
+        syncStateToGameScene();
+        SwingUtilities.invokeLater(() ->
+                gameScene.switchToKhaiBoss(
+                        playerFighter, khaibalang,
+                        capturedTeam, scrollCount, lunasCount, potionCount,
+                        savedX, savedY,
+                        () -> { khaibalangDefeated = true; },
+                        "resources/World3.tmx",
+                        playerName
+                )
+        );
+    }
+    public void showGrandpaEndScene(String pName) {
+        SwingUtilities.invokeLater(() -> {
+            JPanel overlay = new JPanel(null) {
+                @Override protected void paintComponent(Graphics g) {
+                    super.paintComponent(g);
+                    Graphics2D g2 = (Graphics2D) g;
+                    g2.setColor(new Color(0, 0, 0, 230));
+                    g2.fillRect(0, 0, getWidth(), getHeight());
+                }
+            };
+            overlay.setOpaque(false);
+            overlay.setBounds(0, 0, 1280, 720);
+
+            int bw = 860, bh = 380, bx = (1280-bw)/2, by = (720-bh)/2;
+            JPanel box = new JPanel(null) {
+                @Override protected void paintComponent(Graphics g) {
+                    super.paintComponent(g);
+                    Graphics2D g2 = (Graphics2D) g;
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(new Color(8, 20, 8));
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+                    g2.setColor(new Color(80, 200, 80));
+                    g2.setStroke(new BasicStroke(3));
+                    g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 16, 16);
+                }
+            };
+            box.setOpaque(false);
+            box.setBounds(bx, by, bw, bh);
+
+            String[] lines = {
+                    "Grandpa: " + pName + "! I'm here! I'm okay!",
+                    "Here, take my Anting-Anting and save your teacher!",
+                    "",
+                    "[ You received Grandpa's Anting-Anting! ]",
+                    "[ Anting-Anting: 4/4 — All collected! ]",
+                    "",
+                    "Khaibalang: NOOO!!! I WILL HAVE MY REVENGE!!!",
+                    "\"poof\"",
+                    "Sir Khai: ... are you okay, " + pName + "?",
+                    "\"Sir Khai fainted from exhaustion\""
+            };
+            Color[] colors = {
+                    new Color(255, 215, 90), new Color(200, 255, 200),
+                    Color.WHITE,
+                    new Color(100, 255, 150), new Color(100, 255, 150),
+                    Color.WHITE,
+                    new Color(255, 80, 80), new Color(200, 200, 200),
+                    new Color(180, 220, 255), new Color(160, 160, 160)
+            };
+
+            int ly = 20;
+            for (int i = 0; i < lines.length; i++) {
+                if (lines[i].isEmpty()) { ly += 8; continue; }
+                JLabel lbl = new JLabel(lines[i]);
+                lbl.setForeground(colors[i]);
+                lbl.setFont(new Font("Monospaced", Font.PLAIN, 13));
+                lbl.setBounds(20, ly, bw-40, 20);
+                box.add(lbl);
+                ly += 22;
+            }
+
+            antingAntingCount = 4;
+
+            final JPanel fOverlay = overlay;
+            JButton btn = new JButton("Continue...");
+            btn.setBackground(new Color(20, 80, 20));
+            btn.setForeground(Color.WHITE);
+            btn.setFont(new Font("Monospaced", Font.BOLD, 14));
+            btn.setFocusPainted(false);
+            btn.setBorder(BorderFactory.createLineBorder(new Color(80, 200, 80), 2));
+            btn.setBounds(bw/2-100, bh-52, 200, 36);
+            btn.addActionListener(e -> {
+                WorldPanel.this.remove(fOverlay);
+                WorldPanel.this.revalidate();
+                WorldPanel.this.repaint();
+                showFinalChoice(pName);
+            });
+            box.add(btn);
+            overlay.add(box);
+            this.add(overlay);
+            this.setComponentZOrder(overlay, 0);
+            this.revalidate();
+            this.repaint();
+        });
+    }
+    private void showFinalChoice(String pName) {
+        JPanel overlay = new JPanel(null) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setColor(new Color(0, 0, 0, 240));
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.setColor(new Color(255, 215, 90));
+                g2.setFont(new Font("Monospaced", Font.BOLD, 26));
+                FontMetrics fm = g2.getFontMetrics();
+                String line1 = "YOU SAVED YOUR GRANDPA AND SIR KHAI!";
+                g2.drawString(line1, (1280-fm.stringWidth(line1))/2, 220);
+                g2.setColor(new Color(200, 200, 200));
+                g2.setFont(new Font("Monospaced", Font.PLAIN, 15));
+                fm = g2.getFontMetrics();
+                String line2 = "What will you do now, " + pName + "?";
+                g2.drawString(line2, (1280-fm.stringWidth(line2))/2, 270);
+            }
+        };
+        overlay.setOpaque(false);
+        overlay.setBounds(0, 0, 1280, 720);
+
+        // STAY button
+        JButton stayBtn = new JButton("STAY — Become an Albularyo with Grandpa");
+        stayBtn.setBackground(new Color(40, 100, 40));
+        stayBtn.setForeground(Color.WHITE);
+        stayBtn.setFont(new Font("Monospaced", Font.BOLD, 14));
+        stayBtn.setFocusPainted(false);
+        stayBtn.setBorder(BorderFactory.createLineBorder(new Color(80, 200, 80), 2));
+        stayBtn.setBounds(240, 320, 800, 54);
+        stayBtn.addActionListener(e -> {
+            WorldPanel.this.remove(overlay);
+            WorldPanel.this.revalidate();
+            WorldPanel.this.repaint();
+            showFloatingMessage("You stayed with your Grandpa. A new adventure begins!", new Color(100, 255, 150));
+            // Reset boss flags so player can fight again
+            bossFightDone = false; w2BossDone = false; w3BossDone = false;
+            syncStateToGameScene();
+        });
+
+        // RETURN button
+        JButton returnBtn = new JButton("RETURN — Go back to the city with Sir Khai");
+        returnBtn.setBackground(new Color(40, 40, 120));
+        returnBtn.setForeground(Color.WHITE);
+        returnBtn.setFont(new Font("Monospaced", Font.BOLD, 14));
+        returnBtn.setFocusPainted(false);
+        returnBtn.setBorder(BorderFactory.createLineBorder(new Color(80, 120, 255), 2));
+        returnBtn.setBounds(240, 390, 800, 54);
+        returnBtn.addActionListener(e -> {
+            WorldPanel.this.remove(overlay);
+            WorldPanel.this.revalidate();
+            WorldPanel.this.repaint();
+            gameScene.showCredits(pName);
+        });
+
+        overlay.add(stayBtn);
+        overlay.add(returnBtn);
+        this.add(overlay);
+        this.setComponentZOrder(overlay, 0);
+        this.revalidate();
+        this.repaint();
+    }
+
+
 
     private Fighter createBungisngis25() {
         Type EARTH = new Type("Earth", 0xBB8833);
@@ -3310,7 +3610,28 @@ public class WorldPanel extends JPanel implements Runnable {
     }
 
     public void start() {
-        if (gameThread==null) { gameThread=new Thread(this); gameThread.start(); }
+        if (gameThread == null) {
+            gameThread = new Thread(this);
+            gameThread.start();
+        }
+
+        if (pendingKhaibalang != null) {
+            Fighter khai  = pendingKhaibalang;
+            String  pName = pendingKhaiPName;
+            pendingKhaibalang = null;
+            pendingKhaiPName  = null;
+            new Timer(1000, e -> {
+                ((Timer) e.getSource()).stop();
+                gameScene.switchToKhaiBoss(
+                        playerFighter, khai, capturedTeam,
+                        scrollCount, lunasCount, potionCount,
+                        playerX, playerY,
+                        null,
+                        currentMapPath,
+                        pName
+                );
+            }).start();
+        }
     }
 
     private void update() {

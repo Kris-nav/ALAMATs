@@ -7,10 +7,10 @@ import javax.swing.*;
 import java.awt.*;
 import java.io.File;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 import javax.sound.sampled.*;
-import java.io.File;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 public class GameScene extends JFrame {
     private JTextArea textArea;
@@ -71,6 +71,9 @@ public class GameScene extends JFrame {
     private boolean w3BossDone        = false;
 
     private Clip bgmClip = null;
+
+    // ── Reference to current WorldPanel for grandpa/credits calls ─
+    private WorldPanel currentWorldPanel = null;
 
     public GameScene(ProgressionManager pm) {
         this.progressionManager = pm;
@@ -145,7 +148,6 @@ public class GameScene extends JFrame {
         this.portalVisible  = portalVisible;
     }
 
-    /** Called by WorldPanel to sync World 2 state back into GameScene before any scene switch. */
     public void syncWorld2State(boolean w2BossDone, boolean w2PortalVisible,
                                 boolean quest2Complete, boolean oldWomanCured,
                                 boolean peksonGaveAnting2, boolean anting2Active,
@@ -169,7 +171,6 @@ public class GameScene extends JFrame {
         this.superScrollCount  = superScroll;
     }
 
-    /** Called by WorldPanel to sync World 3 state back into GameScene before any scene switch. */
     public void syncWorld3State(boolean w3Quest3Triggered,
                                 boolean w3Coin1Found, boolean w3Coin2Found,
                                 boolean w3Coin3Found, boolean w3Coin4Found,
@@ -217,11 +218,37 @@ public class GameScene extends JFrame {
         }).start();
     }
 
+    // ══════════════════════════════════════════════════════════════
+    // MUSIC
+    // ══════════════════════════════════════════════════════════════
+
+    public void playMusic(String path) {
+        try {
+            if (bgmClip != null) { bgmClip.stop(); bgmClip.close(); }
+            AudioInputStream audio = AudioSystem.getAudioInputStream(new File(path));
+            bgmClip = AudioSystem.getClip();
+            bgmClip.open(audio);
+            bgmClip.loop(Clip.LOOP_CONTINUOUSLY);
+            FloatControl gain = (FloatControl) bgmClip.getControl(FloatControl.Type.MASTER_GAIN);
+            gain.setValue(-10.0f);
+            bgmClip.start();
+        } catch (Exception e) { System.err.println("Music error: " + e.getMessage()); }
+    }
+
+    public void stopMusic() {
+        if (bgmClip != null) { bgmClip.stop(); bgmClip.close(); bgmClip = null; }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // SWITCH TO WORLD (initial entry)
+    // ══════════════════════════════════════════════════════════════
+
     public void switchToWorld() {
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
             WorldPanel world = new WorldPanel(this, "?", 0, "?");
+            currentWorldPanel = world;
             this.add(world, BorderLayout.CENTER);
             this.pack();
             this.setLocationRelativeTo(null);
@@ -261,6 +288,7 @@ public class GameScene extends JFrame {
                     this.getContentPane().removeAll();
                     this.setLayout(new BorderLayout());
                     WorldPanel newWorld = new WorldPanel(this, playerName, playerAge, playerGender);
+                    currentWorldPanel = newWorld;
                     this.add(newWorld, BorderLayout.CENTER);
                     this.pack();
                     this.setLocationRelativeTo(null);
@@ -275,7 +303,10 @@ public class GameScene extends JFrame {
         });
     }
 
-    // ── Return to World 1 after any battle ────────────────────────
+    // ══════════════════════════════════════════════════════════════
+    // RETURN TO WORLD AFTER BATTLE
+    // ══════════════════════════════════════════════════════════════
+
     public void switchToWorldAt(int x, int y,
                                 ArrayList<Fighter> team,
                                 Fighter playerFighter,
@@ -303,6 +334,7 @@ public class GameScene extends JFrame {
                     playerCoins, gameStartTime, cooldownUntil,
                     adminMode, caveSceneShown, bossFightDone, portalVisible);
             world.setAntingAntingCount(antingAntingCount);
+            currentWorldPanel = world;
             this.add(world, BorderLayout.CENTER);
             this.pack();
             this.setLocationRelativeTo(null);
@@ -315,24 +347,7 @@ public class GameScene extends JFrame {
             });
         });
     }
-    public void playMusic(String path) {
-        try {
-            if (bgmClip != null) { bgmClip.stop(); bgmClip.close(); }
-            AudioInputStream audio = AudioSystem.getAudioInputStream(new File(path));
-            bgmClip = AudioSystem.getClip();
-            bgmClip.open(audio);
-            bgmClip.loop(Clip.LOOP_CONTINUOUSLY);
-            FloatControl gain = (FloatControl) bgmClip.getControl(FloatControl.Type.MASTER_GAIN);
-            gain.setValue(-10.0f);
-            bgmClip.start();
-        } catch (Exception e) { System.err.println("Music error: " + e.getMessage()); }
-    }
 
-    public void stopMusic() {
-        if (bgmClip != null) { bgmClip.stop(); bgmClip.close(); bgmClip = null; }
-    }
-
-    // ── Return to any map after battle (World 2 / World 3 aware) ──
     public void switchToWorldAtMap(int x, int y,
                                    ArrayList<Fighter> team,
                                    Fighter playerFighter,
@@ -362,8 +377,7 @@ public class GameScene extends JFrame {
                         playerName, playerAge, playerGender,
                         playerCoins, gameStartTime, cooldownUntil,
                         adminMode, caveSceneShown, bossFightDone, portalVisible,
-                        mapPath,
-                        false);
+                        mapPath, false);
                 world.setAntingAntingCount(antingAntingCount);
                 world.restoreWorld2State(
                         w2BossDone, w2PortalVisible,
@@ -373,11 +387,10 @@ public class GameScene extends JFrame {
                         treasureFound, hasMap,
                         quest2Triggered,
                         superLunasCount, superPotionCount, superScrollCount);
+                currentWorldPanel = world;
                 this.add(world, BorderLayout.CENTER);
-                this.pack();
-                this.setLocationRelativeTo(null);
-                this.revalidate();
-                this.repaint();
+                this.pack(); this.setLocationRelativeTo(null);
+                this.revalidate(); this.repaint();
                 SwingUtilities.invokeLater(() -> {
                     world.requestFocusInWindow();
                     playMusic("resources/music/eterna.wav");
@@ -391,10 +404,8 @@ public class GameScene extends JFrame {
                         playerName, playerAge, playerGender,
                         playerCoins, gameStartTime, cooldownUntil,
                         adminMode, caveSceneShown, bossFightDone, portalVisible,
-                        mapPath,
-                        false);
+                        mapPath, false);
                 world.setAntingAntingCount(antingAntingCount);
-                // ── KEY FIX: restore all World 3 flags after every battle return ──
                 world.restoreWorld3State(
                         w3Quest3Triggered,
                         w3Coin1Found, w3Coin2Found, w3Coin3Found,
@@ -402,11 +413,10 @@ public class GameScene extends JFrame {
                         w3Quest3Complete, w3BossDone,
                         hasMap,
                         superLunasCount, superPotionCount, superScrollCount);
+                currentWorldPanel = world;
                 this.add(world, BorderLayout.CENTER);
-                this.pack();
-                this.setLocationRelativeTo(null);
-                this.revalidate();
-                this.repaint();
+                this.pack(); this.setLocationRelativeTo(null);
+                this.revalidate(); this.repaint();
                 SwingUtilities.invokeLater(() -> {
                     world.requestFocusInWindow();
                     playMusic("resources/music/eterna.wav");
@@ -414,7 +424,6 @@ public class GameScene extends JFrame {
                 });
 
             } else {
-                // World 1 or other maps
                 WorldPanel world = new WorldPanel(
                         this, x, y, team, worldFighter,
                         scrollCount, lunasCount, potionCount,
@@ -423,11 +432,10 @@ public class GameScene extends JFrame {
                         adminMode, caveSceneShown, bossFightDone, portalVisible,
                         mapPath);
                 world.setAntingAntingCount(antingAntingCount);
+                currentWorldPanel = world;
                 this.add(world, BorderLayout.CENTER);
-                this.pack();
-                this.setLocationRelativeTo(null);
-                this.revalidate();
-                this.repaint();
+                this.pack(); this.setLocationRelativeTo(null);
+                this.revalidate(); this.repaint();
                 SwingUtilities.invokeLater(() -> {
                     world.requestFocusInWindow();
                     playMusic("resources/music/eterna.wav");
@@ -436,6 +444,10 @@ public class GameScene extends JFrame {
             }
         });
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // MAX FIGHTER HELPER
+    // ══════════════════════════════════════════════════════════════
 
     private void maxFighterIfNeeded(Fighter f) {
         if (f.level >= 99) return;
@@ -449,25 +461,24 @@ public class GameScene extends JFrame {
         for (game.battle.Move m : f.moveset) { m.lockedUntilLevel = 0; m.pp = m.maxPp; }
     }
 
+    // ══════════════════════════════════════════════════════════════
+    // WILD BATTLE
+    // ══════════════════════════════════════════════════════════════
+
     public void switchToBattle(Fighter playerFighter,
                                Fighter wildFighter,
                                ArrayList<Fighter> team,
-                               int scrollCount,
-                               int lunasCount,
-                               int potionCount,
+                               int scrollCount, int lunasCount, int potionCount,
                                int savedX, int savedY) {
         this.switchToBattleOnMap(playerFighter, wildFighter, team,
                 scrollCount, lunasCount, potionCount,
                 savedX, savedY, "resources/World1.tmx");
     }
 
-    // ── Wild battle returning to a specific map ────────────────────
     public void switchToBattleOnMap(Fighter playerFighter,
                                     Fighter wildFighter,
                                     ArrayList<Fighter> team,
-                                    int scrollCount,
-                                    int lunasCount,
-                                    int potionCount,
+                                    int scrollCount, int lunasCount, int potionCount,
                                     int savedX, int savedY,
                                     String returnMapPath) {
         if (starterFighter == null) starterFighter = playerFighter;
@@ -520,6 +531,10 @@ public class GameScene extends JFrame {
         });
     }
 
+    // ══════════════════════════════════════════════════════════════
+    // BOSS BATTLE
+    // ══════════════════════════════════════════════════════════════
+
     public void switchToBossAt(Fighter playerFighter,
                                Fighter bossFirst,
                                ArrayList<Fighter> bossTeamRest,
@@ -532,7 +547,6 @@ public class GameScene extends JFrame {
                 savedX, savedY, onBossDefeated, "resources/World1.tmx");
     }
 
-    // ── Boss battle returning to a specific map ────────────────────
     public void switchToBossAtOnMap(Fighter playerFighter,
                                     Fighter bossFirst,
                                     ArrayList<Fighter> bossTeamRest,
@@ -551,12 +565,10 @@ public class GameScene extends JFrame {
                     playerFighter, bossFirst, playerTeam,
                     scrollCount, lunasCount, potionCount,
 
-                    // ── Win callback ───────────────────────────────────────
+                    // Win callback
                     (updatedFighter, updatedTeam, updatedScrolls,
                      updatedLunas, updatedPotions, blackout) -> {
                         long cooldown = System.currentTimeMillis() + 5000L;
-
-                        // Boss rewards
                         playerCoins += 900;
                         antingAntingCount = Math.min(4, antingAntingCount + 1);
                         int bossExp = 200;
@@ -573,8 +585,7 @@ public class GameScene extends JFrame {
                             }
                         } else {
                             if (returnMapPath.contains("World2")) {
-                                w2BossDone      = true;
-                                w2PortalVisible = true;
+                                w2BossDone = true; w2PortalVisible = true;
                                 if (onBossDefeated != null) onBossDefeated.run();
                                 switchToWorldAtMap(savedX, savedY, updatedTeam, updatedFighter,
                                         updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldown, returnMapPath);
@@ -584,8 +595,7 @@ public class GameScene extends JFrame {
                                 switchToWorldAtMap(savedX, savedY, updatedTeam, updatedFighter,
                                         updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldown, returnMapPath);
                             } else {
-                                bossFightDone = true;
-                                portalVisible = true;
+                                bossFightDone = true; portalVisible = true;
                                 if (onBossDefeated != null) onBossDefeated.run();
                                 switchToWorldAt(savedX, savedY, updatedTeam, updatedFighter,
                                         updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldown);
@@ -593,7 +603,7 @@ public class GameScene extends JFrame {
                         }
                     },
 
-                    // ── Run/escape callback ────────────────────────────────
+                    // Run callback
                     (updatedFighter, updatedTeam, updatedScrolls,
                      updatedLunas, updatedPotions, blackout) -> {
                         long cooldown = System.currentTimeMillis() + 5000L;
@@ -606,79 +616,126 @@ public class GameScene extends JFrame {
                         }
                     },
 
-                    true,
-                    "The Witch Doctor",
-                    bossTeamRest
+                    true, "The Witch Doctor", bossTeamRest
             );
 
             this.add(battle, BorderLayout.CENTER);
             this.pack();
             this.setLocationRelativeTo(null);
+            playMusic("resources/music/red.wav");
             this.revalidate();
             this.repaint();
         });
     }
 
-    // ── Enter World 3 for the first time ──────────────────────────
-    public void switchToWorld3(Fighter playerFighter,
-                               ArrayList<Fighter> team,
-                               int scrollCount,
-                               int lunasCount,
-                               int potionCount,
-                               int coins,
-                               long startTime,
-                               boolean adminMode,
-                               boolean caveSceneShown,
-                               int antingAntingCount) {
+    // ══════════════════════════════════════════════════════════════
+    // KHAIBALANG BOSS BATTLE  (single definition)
+    // ══════════════════════════════════════════════════════════════
+
+    public void switchToKhaiBoss(Fighter playerFighter,
+                                 Fighter khaibalang,
+                                 ArrayList<Fighter> team,
+                                 int scrollCount, int lunasCount, int potionCount,
+                                 int savedX, int savedY,
+                                 Runnable onDefeated,
+                                 String mapPath,
+                                 String pName) {
+        if (starterFighter == null) starterFighter = playerFighter;
+
+        SwingUtilities.invokeLater(() -> {
+            this.getContentPane().removeAll();
+            this.setLayout(new BorderLayout());
+
+            BattleScreen battle = new BattleScreen(
+                    playerFighter, khaibalang, team,
+                    scrollCount, lunasCount, potionCount,
+
+                    // Win
+                    (updatedFighter, updatedTeam, updatedScrolls,
+                     updatedLunas, updatedPotions, blackout) -> {
+                        if (blackout) {
+                            switchToKhaiRespawn(updatedFighter, khaibalang,
+                                    updatedTeam, updatedScrolls, updatedLunas,
+                                    updatedPotions, mapPath, pName);
+                        } else {
+                            playerCoins += 1000;
+                            antingAntingCount = Math.min(4, antingAntingCount + 1);
+                            if (onDefeated != null) onDefeated.run();
+                            switchToWorldAtMap(savedX, savedY, updatedTeam, updatedFighter,
+                                    updatedScrolls, updatedLunas, updatedPotions,
+                                    playerCoins, 0L, mapPath);
+                            new Timer(1500, e -> {
+                                ((Timer) e.getSource()).stop();
+                                showGrandpaDialog(pName);
+                            }).start();
+                        }
+                    },
+
+                    // Lose / blackout — respawn at pond
+                    (updatedFighter, updatedTeam, updatedScrolls,
+                     updatedLunas, updatedPotions, blackout) -> {
+                        switchToKhaiRespawn(updatedFighter, khaibalang,
+                                updatedTeam, updatedScrolls, updatedLunas,
+                                updatedPotions, mapPath, pName);
+                    },
+
+                    true, "KHAIBALANG", new ArrayList<>()
+            );
+
+            this.add(battle, BorderLayout.CENTER);
+            this.pack();
+            this.setLocationRelativeTo(null);
+            playMusic("resources/music/red.wav");
+            this.revalidate();
+            this.repaint();
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // KHAIBALANG RESPAWN  (single definition)
+    // ══════════════════════════════════════════════════════════════
+
+    private void switchToKhaiRespawn(Fighter playerFighter,
+                                     Fighter khaibalang,
+                                     ArrayList<Fighter> team,
+                                     int scrolls, int lunas, int potions,
+                                     String mapPath, String pName) {
+        // Heal all creatures
+        healFighter(playerFighter);
+        for (Fighter f : team) healFighter(f);
+        // Reset Khaibalang for rematch
+        khaibalang.stats.get(0).value = khaibalang.stats.get(0).base;
+        khaibalang.fainted = false;
+        for (game.battle.Move m : khaibalang.moveset) m.pp = m.maxPp;
+
+        // Pond spawn coords in World 3
+        int pondX = 24 * (16 * 9);
+        int pondY = 38 * (16 * 9);
+
         Fighter worldFighter = (starterFighter != null) ? starterFighter : playerFighter;
         team.remove(worldFighter);
-
-        if (adminMode) {
-            for (Fighter f : team) maxFighterIfNeeded(f);
-            maxFighterIfNeeded(worldFighter);
-        }
-
-        this.playerCoins       = coins;
-        this.antingAntingCount = antingAntingCount;
-        this.caveSceneShown    = caveSceneShown;
-        this.adminMode         = adminMode;
-        this.gameStartTime     = startTime;
-
-        // Reset World 3 flags fresh on first entry
-        this.w3Quest3Triggered = false;
-        this.w3Coin1Found      = false;
-        this.w3Coin2Found      = false;
-        this.w3Coin3Found      = false;
-        this.w3Coin4Found      = false;
-        this.w3Coin5Found      = false;
-        this.w3Quest3Complete  = false;
-        this.w3BossDone        = false;
-        this.hasMap = true; // Always have map in World 3
-
-        int world3SpawnX = 4205;
-        int world3SpawnY = 5125;
 
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
 
             WorldPanel world = new WorldPanel(
-                    this, world3SpawnX, world3SpawnY,
-                    team, worldFighter,
-                    scrollCount, lunasCount, potionCount,
+                    this, pondX, pondY, team, worldFighter,
+                    scrolls, lunas, potions,
                     playerName, playerAge, playerGender,
-                    coins, startTime, 0L,
-                    adminMode, caveSceneShown, false, false,
-                    "resources/World3.tmx",
-                    true);
+                    playerCoins, gameStartTime, 0L,
+                    adminMode, caveSceneShown, bossFightDone, portalVisible,
+                    mapPath, false);
             world.setAntingAntingCount(antingAntingCount);
-            // Carry hasMap and super items from World 2 into World 3
             world.restoreWorld3State(
-                    false, false, false, false, false, false,
-                    false, false,
+                    w3Quest3Triggered,
+                    w3Coin1Found, w3Coin2Found, w3Coin3Found,
+                    w3Coin4Found, w3Coin5Found,
+                    w3Quest3Complete, true,
                     hasMap,
                     superLunasCount, superPotionCount, superScrollCount);
-
+            world.setPendingKhaibalang(khaibalang, pName);
+            currentWorldPanel = world;
             this.add(world, BorderLayout.CENTER);
             this.pack();
             this.setLocationRelativeTo(null);
@@ -688,76 +745,238 @@ public class GameScene extends JFrame {
                 world.requestFocusInWindow();
                 playMusic("resources/music/eterna.wav");
                 world.start();
+                new Timer(900, e -> {
+                    ((Timer) e.getSource()).stop();
+                    world.showFloatingMessagePublic(
+                            "You were defeated! Train more and challenge KHAIBALANG again!",
+                            new Color(255, 100, 100));
+                }).start();
             });
         });
     }
 
-    // ── Enter World 2 for the first time ──────────────────────────
-    public void switchToWorld2(Fighter playerFighter,
-                               ArrayList<Fighter> team,
-                               int scrollCount,
-                               int lunasCount,
-                               int potionCount,
-                               int coins,
-                               long startTime,
-                               boolean adminMode,
-                               boolean caveSceneShown,
-                               int antingAntingCount) {
-        Fighter worldFighter = (starterFighter != null) ? starterFighter : playerFighter;
-        team.remove(worldFighter);
+    private void healFighter(Fighter f) {
+        f.stats.get(0).value = f.stats.get(0).base;
+        f.fainted = false;
+        for (game.battle.Move m : f.moveset) { if (!m.isLocked()) m.pp = m.maxPp; }
+    }
 
-        if (adminMode) {
-            for (Fighter f : team) maxFighterIfNeeded(f);
-            maxFighterIfNeeded(worldFighter);
+    // ══════════════════════════════════════════════════════════════
+    // GRANDPA DIALOG  (single definition)
+    // ══════════════════════════════════════════════════════════════
+
+    public void showGrandpaDialog(String pName) {
+        if (currentWorldPanel != null) {
+            currentWorldPanel.showGrandpaEndScene(pName);
         }
+    }
 
-        this.playerCoins       = coins;
-        this.antingAntingCount = antingAntingCount;
-        this.caveSceneShown    = caveSceneShown;
-        this.adminMode         = adminMode;
-        this.gameStartTime     = startTime;
+    // ══════════════════════════════════════════════════════════════
+    // CREDITS SCENE  (single definition) - FIXED VERSION
+    // ══════════════════════════════════════════════════════════════
 
-        // Reset World 1 boss flags (already done), reset World 2 flags fresh
-        this.bossFightDone     = false;
-        this.portalVisible     = false;
-        this.w2BossDone        = false;
-        this.w2PortalVisible   = false;
-        this.quest2Complete    = false;
-        this.oldWomanCured     = false;
-        this.peksonGaveAnting2 = false;
-        this.anting2Active     = false;
-        this.expMultiplier     = 1.0;
-        this.peksonTalked      = false;
-        this.treasureFound     = false;
-        this.hasMap            = false;
-        this.quest2Triggered   = false;
-        this.superLunasCount   = 0;
-        this.superPotionCount  = 0;
-        this.superScrollCount  = 0;
-
-        int world2SpawnX = 4205;
-        int world2SpawnY = 5125;
-
+    public void showCredits(String pName) {
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
 
-            WorldPanel world = new WorldPanel(
-                    this, world2SpawnX, world2SpawnY,
-                    team, worldFighter,
-                    scrollCount, lunasCount, potionCount,
-                    playerName, playerAge, playerGender,
-                    coins, startTime, 0L,
-                    adminMode, caveSceneShown, false, false,
-                    "resources/World2.tmx",
-                    true);
-            world.setAntingAntingCount(antingAntingCount);
+            String[] credits = {
+                    "~ THE END ~", "",
+                    pName + " returned to the city with Sir Khai.",
+                    "The creatures were set free to roam the land.",
+                    "Grandpa continued his life as the village Albularyo.",
+                    "", "~ ALAMAT ~", "",
+                    "DEVELOPED BY:",
+                    "Project Manager: Kristoferson S. Navarro",
+                    "Front End / Designer: Kristoferson S. Navarro",
+                    "Backend: Kristoferson S. Navarro, John Joshua Montebon",
+                    "",
+                    "SPECIAL THANKS:",
+                    "Sir Kenn Migan Vincent Gumonan A.K.A \"Sir KHAI\"",
+                    "Claude AI",
+                    "Deepseek",
+                    "Github",
+                    "Youtube",
+                    "PUNY_MYTH-CREATURES",
+                    "",
+                    "Thank you for playing ALAMAT!"
+            };
 
-            this.add(world, BorderLayout.CENTER);
+            JPanel creditsPanel = new JPanel(null) {
+                private int scrollY = 820;
+                private Timer scrollTimer;
+
+                @Override
+                public void addNotify() {
+                    super.addNotify();
+                    scrollTimer = new Timer(16, e -> {
+                        scrollY -= 2;
+                        repaint();
+                        if (scrollY < -credits.length * 55) {
+                            scrollTimer.stop();
+                        }
+                    });
+                    scrollTimer.start();
+                }
+
+                @Override
+                public void removeNotify() {
+                    if (scrollTimer != null) {
+                        scrollTimer.stop();
+                    }
+                    super.removeNotify();
+                }
+
+                @Override
+                protected void paintComponent(Graphics g) {
+                    super.paintComponent(g);
+                    Graphics2D g2 = (Graphics2D) g;
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(Color.BLACK);
+                    g2.fillRect(0, 0, getWidth(), getHeight());
+                    int y = scrollY;
+                    for (String line : credits) {
+                        if (line.isEmpty()) { y += 20; continue; }
+                        if (line.equals("~ THE END ~") || line.equals("~ ALAMAT ~")) {
+                            g2.setColor(new Color(255, 215, 90));
+                            g2.setFont(new Font("Monospaced", Font.BOLD, 30));
+                        } else if (line.equals("DEVELOPED BY:") || line.equals("SPECIAL THANKS:")) {
+                            g2.setColor(new Color(180, 180, 255));
+                            g2.setFont(new Font("Monospaced", Font.BOLD, 18));
+                        } else if (line.startsWith("Project Manager:") || line.startsWith("Front End:") || line.startsWith("Backend:")) {
+                            g2.setColor(new Color(150, 220, 150));
+                            g2.setFont(new Font("Monospaced", Font.PLAIN, 14));
+                        } else if (line.contains("Sir KHAI") || line.equals("Claude AI") || line.equals("Deepseek") || line.equals("Github") || line.equals("PUNY_MYTH-CREATURES")) {
+                            g2.setColor(new Color(255, 200, 100));
+                            g2.setFont(new Font("Monospaced", Font.PLAIN, 14));
+                        } else {
+                            g2.setColor(new Color(220, 220, 220));
+                            g2.setFont(new Font("Monospaced", Font.PLAIN, 16));
+                        }
+                        FontMetrics fm = g2.getFontMetrics();
+                        g2.drawString(line, (getWidth() - fm.stringWidth(line)) / 2, y);
+                        y += 55;
+                    }
+                }
+            };
+            creditsPanel.setBackground(Color.BLACK);
+            creditsPanel.setPreferredSize(new Dimension(W, H));
+            stopMusic();
+            currentWorldPanel = null;
+            this.add(creditsPanel, BorderLayout.CENTER);
             this.pack();
             this.setLocationRelativeTo(null);
             this.revalidate();
             this.repaint();
+
+            // AFTER 10 SECONDS, RETURN TO START SCREEN
+            new Timer(10000, e -> {
+                ((Timer) e.getSource()).stop();
+                returnToStartScreen();
+            }).start();
+        });
+    }
+    // ══════════════════════════════════════════════════════════════
+    // RETURN TO START SCREEN
+    // ══════════════════════════════════════════════════════════════
+    private void returnToStartScreen() {
+        SwingUtilities.invokeLater(() -> {
+            this.getContentPane().removeAll();
+            this.setLayout(new BorderLayout());
+
+            JPanel startPanel = new JPanel() {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    super.paintComponent(g);
+                    Graphics2D g2 = (Graphics2D) g;
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(new Color(8, 6, 16));
+                    g2.fillRect(0, 0, getWidth(), getHeight());
+
+                    g2.setColor(new Color(255, 215, 90));
+                    g2.setFont(new Font("Monospaced", Font.BOLD, 52));
+                    FontMetrics fm = g2.getFontMetrics();
+                    String title = "ALAMAT";
+                    g2.drawString(title, (getWidth() - fm.stringWidth(title)) / 2, getHeight() / 2 - 60);
+
+                    g2.setColor(new Color(180, 150, 80));
+                    g2.setFont(new Font("Monospaced", Font.PLAIN, 20));
+                    fm = g2.getFontMetrics();
+                    String subtitle = "A Filipino Folklore Adventure";
+                    g2.drawString(subtitle, (getWidth() - fm.stringWidth(subtitle)) / 2, getHeight() / 2 - 10);
+
+                    g2.setColor(new Color(100, 200, 100));
+                    g2.setFont(new Font("Monospaced", Font.BOLD, 18));
+                    fm = g2.getFontMetrics();
+                    String playText = "Click anywhere to start your journey!";
+                    g2.drawString(playText, (getWidth() - fm.stringWidth(playText)) / 2, getHeight() / 2 + 60);
+
+                    long time = System.currentTimeMillis();
+                    if ((time / 500) % 2 == 0) {
+                        g2.setColor(new Color(255, 100, 100));
+                        String arrow = "▼";
+                        fm = g2.getFontMetrics();
+                        g2.drawString(arrow, (getWidth() - fm.stringWidth(arrow)) / 2, getHeight() / 2 + 110);
+                    }
+                }
+            };
+            startPanel.setPreferredSize(new Dimension(W, H));
+            startPanel.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    switchToWorld();
+                }
+            });
+
+            this.add(startPanel, BorderLayout.CENTER);
+            this.pack();
+            this.setLocationRelativeTo(null);
+            this.revalidate();
+            this.repaint();
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // WORLD 2 ENTRY
+    // ══════════════════════════════════════════════════════════════
+
+    public void switchToWorld2(Fighter playerFighter,
+                               ArrayList<Fighter> team,
+                               int scrollCount, int lunasCount, int potionCount,
+                               int coins, long startTime,
+                               boolean adminMode, boolean caveSceneShown,
+                               int antingAntingCount) {
+        Fighter worldFighter = (starterFighter != null) ? starterFighter : playerFighter;
+        team.remove(worldFighter);
+        if (adminMode) { for (Fighter f : team) maxFighterIfNeeded(f); maxFighterIfNeeded(worldFighter); }
+
+        this.playerCoins = coins; this.antingAntingCount = antingAntingCount;
+        this.caveSceneShown = caveSceneShown; this.adminMode = adminMode;
+        this.gameStartTime = startTime;
+        this.bossFightDone = false; this.portalVisible = false;
+        this.w2BossDone = false; this.w2PortalVisible = false;
+        this.quest2Complete = false; this.oldWomanCured = false;
+        this.peksonGaveAnting2 = false; this.anting2Active = false;
+        this.expMultiplier = 1.0; this.peksonTalked = false;
+        this.treasureFound = false; this.hasMap = false;
+        this.quest2Triggered = false;
+        this.superLunasCount = 0; this.superPotionCount = 0; this.superScrollCount = 0;
+
+        SwingUtilities.invokeLater(() -> {
+            this.getContentPane().removeAll();
+            this.setLayout(new BorderLayout());
+            WorldPanel world = new WorldPanel(
+                    this, 4205, 5125, team, worldFighter,
+                    scrollCount, lunasCount, potionCount,
+                    playerName, playerAge, playerGender,
+                    coins, startTime, 0L,
+                    adminMode, caveSceneShown, false, false,
+                    "resources/World2.tmx", true);
+            world.setAntingAntingCount(antingAntingCount);
+            currentWorldPanel = world;
+            this.add(world, BorderLayout.CENTER);
+            this.pack(); this.setLocationRelativeTo(null);
+            this.revalidate(); this.repaint();
             SwingUtilities.invokeLater(() -> {
                 world.requestFocusInWindow();
                 playMusic("resources/music/eterna.wav");
@@ -765,6 +984,102 @@ public class GameScene extends JFrame {
             });
         });
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // WORLD 3 ENTRY
+    // ══════════════════════════════════════════════════════════════
+
+    public void switchToWorld3(Fighter playerFighter,
+                               ArrayList<Fighter> team,
+                               int scrollCount, int lunasCount, int potionCount,
+                               int coins, long startTime,
+                               boolean adminMode, boolean caveSceneShown,
+                               int antingAntingCount) {
+        Fighter worldFighter = (starterFighter != null) ? starterFighter : playerFighter;
+        team.remove(worldFighter);
+        if (adminMode) { for (Fighter f : team) maxFighterIfNeeded(f); maxFighterIfNeeded(worldFighter); }
+
+        this.playerCoins = coins; this.antingAntingCount = antingAntingCount;
+        this.caveSceneShown = caveSceneShown; this.adminMode = adminMode;
+        this.gameStartTime = startTime;
+        this.w3Quest3Triggered = false; this.w3Coin1Found = false;
+        this.w3Coin2Found = false; this.w3Coin3Found = false;
+        this.w3Coin4Found = false; this.w3Coin5Found = false;
+        this.w3Quest3Complete = false; this.w3BossDone = false;
+        this.hasMap = true;
+
+        SwingUtilities.invokeLater(() -> {
+            this.getContentPane().removeAll();
+            this.setLayout(new BorderLayout());
+            WorldPanel world = new WorldPanel(
+                    this, 4205, 5125, team, worldFighter,
+                    scrollCount, lunasCount, potionCount,
+                    playerName, playerAge, playerGender,
+                    coins, startTime, 0L,
+                    adminMode, caveSceneShown, false, false,
+                    "resources/World3.tmx", true);
+            world.setAntingAntingCount(antingAntingCount);
+            world.restoreWorld3State(
+                    false, false, false, false, false, false,
+                    false, false, hasMap,
+                    superLunasCount, superPotionCount, superScrollCount);
+            currentWorldPanel = world;
+            this.add(world, BorderLayout.CENTER);
+            this.pack(); this.setLocationRelativeTo(null);
+            this.revalidate(); this.repaint();
+            SwingUtilities.invokeLater(() -> {
+                world.requestFocusInWindow();
+                playMusic("resources/music/eterna.wav");
+                world.start();
+            });
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // CHEAT COMMANDS — called from WorldPanel.executeCommand()
+    // ══════════════════════════════════════════════════════════════
+
+    public void cheatSkipTown3Boss(WorldPanel world) {
+        w3Quest3Complete = true;
+        w3BossDone       = true;
+        w3Coin1Found = w3Coin2Found = w3Coin3Found =
+                w3Coin4Found = w3Coin5Found = true;
+        world.syncStateToGameScenePublic();
+        world.showFloatingMessagePublic(
+                "Skiptown3boss — Albularyo skipped! Khaibalang awaits...",
+                new Color(180, 130, 255));
+        new Timer(1800, e -> {
+            ((Timer) e.getSource()).stop();
+            world.showKhaiDialogPublic();
+        }).start();
+    }
+
+    public void cheatSkipKhaibalang(WorldPanel world) {
+        antingAntingCount = 4;
+        w3BossDone        = true;
+        world.syncStateToGameScenePublic();
+        world.showFloatingMessagePublic(
+                "SkipKhaibalang — Teleporting to final choice...",
+                new Color(100, 255, 200));
+        new Timer(1800, e -> {
+            ((Timer) e.getSource()).stop();
+            Fighter wf = (starterFighter != null) ? starterFighter : world.getPlayerFighter();
+            ArrayList<Fighter> team = new ArrayList<>(world.getCapturedTeam());
+            switchToWorldAt(SPAWN_X, SPAWN_Y, team, wf,
+                    world.getScrollCount(), world.getLunasCount(), world.getPotionCount(),
+                    playerCoins, 0L);
+            new Timer(1200, e2 -> {
+                ((Timer) e2.getSource()).stop();
+                if (currentWorldPanel != null) {
+                    currentWorldPanel.showFinalChoicePublic(playerName);
+                }
+            }).start();
+        }).start();
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // MISC
+    // ══════════════════════════════════════════════════════════════
 
     public void addChar(String c) {
         SwingUtilities.invokeLater(() -> {
