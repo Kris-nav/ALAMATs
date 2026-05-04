@@ -798,6 +798,7 @@ public class GameScene extends JFrame {
                     "Github",
                     "Youtube",
                     "PUNY_MYTH-CREATURES",
+                    "Tiled",
                     "",
                     "Thank you for playing ALAMAT!"
             };
