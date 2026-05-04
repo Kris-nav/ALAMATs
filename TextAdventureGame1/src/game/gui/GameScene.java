@@ -279,7 +279,7 @@ public class GameScene extends JFrame {
         });
     }
 
-    // ── Return to any map after battle (World 2 aware) ────────────
+    // ── Return to any map after battle (World 2 / World 3 aware) ──
     public void switchToWorldAtMap(int x, int y,
                                    ArrayList<Fighter> team,
                                    Fighter playerFighter,
@@ -321,6 +321,26 @@ public class GameScene extends JFrame {
                         treasureFound, hasMap,
                         quest2Triggered,
                         superLunasCount, superPotionCount, superScrollCount);
+                this.add(world, BorderLayout.CENTER);
+                this.pack();
+                this.setLocationRelativeTo(null);
+                this.revalidate();
+                this.repaint();
+                SwingUtilities.invokeLater(() -> {
+                    world.requestFocusInWindow();
+                    world.start();
+                });
+            } else if (mapPath.contains("World3")) {
+                // Post-battle rebuild of World 3 — isFirstEntry = false
+                WorldPanel world = new WorldPanel(
+                        this, x, y, team, worldFighter,
+                        scrollCount, lunasCount, potionCount,
+                        playerName, playerAge, playerGender,
+                        playerCoins, gameStartTime, cooldownUntil,
+                        adminMode, caveSceneShown, bossFightDone, portalVisible,
+                        mapPath,
+                        false);
+                world.setAntingAntingCount(antingAntingCount);
                 this.add(world, BorderLayout.CENTER);
                 this.pack();
                 this.setLocationRelativeTo(null);
@@ -480,7 +500,7 @@ public class GameScene extends JFrame {
 
                         if (blackout) {
                             // Player blacked out — respawn, no boss state change
-                            if (returnMapPath.contains("World2")) {
+                            if (returnMapPath.contains("World2") || returnMapPath.contains("World3")) {
                                 switchToWorldAtMap(SPAWN_X, SPAWN_Y, updatedTeam, updatedFighter,
                                         updatedScrolls, updatedLunas, updatedPotions, playerCoins, 0L, returnMapPath);
                             } else {
@@ -493,6 +513,11 @@ public class GameScene extends JFrame {
                                 // ── World 2 boss defeated ──────────────────
                                 w2BossDone      = true;
                                 w2PortalVisible = true;
+                                if (onBossDefeated != null) onBossDefeated.run();
+                                switchToWorldAtMap(savedX, savedY, updatedTeam, updatedFighter,
+                                        updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldown, returnMapPath);
+                            } else if (returnMapPath.contains("World3")) {
+                                // ── World 3 boss defeated ──────────────────
                                 if (onBossDefeated != null) onBossDefeated.run();
                                 switchToWorldAtMap(savedX, savedY, updatedTeam, updatedFighter,
                                         updatedScrolls, updatedLunas, updatedPotions, playerCoins, cooldown, returnMapPath);
@@ -530,6 +555,61 @@ public class GameScene extends JFrame {
             this.setLocationRelativeTo(null);
             this.revalidate();
             this.repaint();
+        });
+    }
+
+    // ── Enter World 3 for the first time ──────────────────────────
+    public void switchToWorld3(Fighter playerFighter,
+                               ArrayList<Fighter> team,
+                               int scrollCount,
+                               int lunasCount,
+                               int potionCount,
+                               int coins,
+                               long startTime,
+                               boolean adminMode,
+                               boolean caveSceneShown,
+                               int antingAntingCount) {
+        Fighter worldFighter = (starterFighter != null) ? starterFighter : playerFighter;
+        team.remove(worldFighter);
+
+        if (adminMode) {
+            for (Fighter f : team) maxFighterIfNeeded(f);
+            maxFighterIfNeeded(worldFighter);
+        }
+
+        this.playerCoins       = coins;
+        this.antingAntingCount = antingAntingCount;
+        this.caveSceneShown    = caveSceneShown;
+        this.adminMode         = adminMode;
+        this.gameStartTime     = startTime;
+
+        int world3SpawnX = 4205;
+        int world3SpawnY = 5125;
+
+        SwingUtilities.invokeLater(() -> {
+            this.getContentPane().removeAll();
+            this.setLayout(new BorderLayout());
+
+            WorldPanel world = new WorldPanel(
+                    this, world3SpawnX, world3SpawnY,
+                    team, worldFighter,
+                    scrollCount, lunasCount, potionCount,
+                    playerName, playerAge, playerGender,
+                    coins, startTime, 0L,
+                    adminMode, caveSceneShown, false, false,
+                    "resources/World3.tmx",
+                    true);
+            world.setAntingAntingCount(antingAntingCount);
+
+            this.add(world, BorderLayout.CENTER);
+            this.pack();
+            this.setLocationRelativeTo(null);
+            this.revalidate();
+            this.repaint();
+            SwingUtilities.invokeLater(() -> {
+                world.requestFocusInWindow();
+                world.start();
+            });
         });
     }
 

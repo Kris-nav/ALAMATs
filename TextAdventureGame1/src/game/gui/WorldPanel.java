@@ -1764,7 +1764,7 @@ public class WorldPanel extends JPanel implements Runnable {
         g2.setFont(new Font("Monospaced", Font.BOLD, 10));
         FontMetrics fm = g2.getFontMetrics();
         String label = "WORLD 3 ▶";
-        String sublabel = "(Coming Soon)";
+        String sublabel = w2PortalVisible ? "(Enter)" : "(Locked)";
         g2.drawString(label, cx - fm.stringWidth(label) / 2, tileY - 16 + (int)bounce);
         g2.setColor(new Color(120, 200, 220));
         g2.setFont(new Font("Monospaced", Font.PLAIN, 9));
@@ -1827,7 +1827,93 @@ public class WorldPanel extends JPanel implements Runnable {
         });
         this.add(overlay); this.setComponentZOrder(overlay,0);
         this.revalidate(); this.repaint();
+    }// ══════════════════════════════════════════════════════════════
+    // PORTAL CINEMATIC — World 3 transition
+// ══════════════════════════════════════════════════════════════
+    private void enterPortalToWorld3() {
+        JPanel overlay = new JPanel(null) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(0, 10, 25)); g2.fillRect(0, 0, getWidth(), getHeight());
+                long t = System.currentTimeMillis();
+                for (int ring = 5; ring >= 0; ring--) {
+                    float pulse = (float)(Math.sin((t / 300.0) + ring * 0.8) * 0.3 + 0.7);
+                    int alpha = (int)(40 * pulse), margin = ring * 30;
+                    g2.setColor(new Color(50, 180, 255, alpha));
+                    g2.fillOval(margin, margin, getWidth() - margin * 2, getHeight() - margin * 2);
+                }
+                int cx = getWidth() / 2, cy = getHeight() / 2 - 80;
+                float pulse2 = (float)(Math.sin(t / 500.0) * 0.25 + 0.75);
+                g2.setColor(new Color(20, 80, 180, (int)(120 * pulse2)));
+                g2.fillOval(cx - 80, cy - 80, 160, 160);
+                g2.setColor(new Color(80, 180, 255, (int)(200 * pulse2)));
+                g2.fillOval(cx - 50, cy - 50, 100, 100);
+                g2.setColor(new Color(200, 240, 255));
+                g2.fillOval(cx - 20, cy - 20, 40, 40);
+                g2.setColor(new Color(150, 220, 255));
+                g2.setFont(new Font("Monospaced", Font.BOLD, 22));
+                FontMetrics fm = g2.getFontMetrics();
+                String portalTitle = "✦ ENTERING WORLD 3 ✦";
+                g2.drawString(portalTitle, cx - fm.stringWidth(portalTitle) / 2, cy + 100);
+                int bw = 900, bh = 170, bx = cx - bw / 2, by = cy + 120;
+                g2.setColor(new Color(5, 15, 35, 230));
+                g2.fillRoundRect(bx, by, bw, bh, 16, 16);
+                g2.setColor(new Color(60, 120, 220));
+                g2.setStroke(new BasicStroke(2));
+                g2.drawRoundRect(bx, by, bw, bh, 16, 16);
+                String[] lines = {
+                        "You are now traveling to the third town...",
+                        "Stronger creatures and challenges await you!",
+                        "Defeat the next Albularyo to save your Grandpa!",
+                        "Collect all 4 Anting-Anting — you're almost there!"
+                };
+                Color[] lineColors = {
+                        new Color(200, 230, 255),
+                        new Color(150, 200, 255),
+                        new Color(255, 160, 160),
+                        new Color(255, 215, 90)
+                };
+                int lineY = by + 30;
+                for (int i = 0; i < lines.length; i++) {
+                    g2.setColor(lineColors[i]);
+                    g2.setFont(new Font("Monospaced", i == 0 ? Font.BOLD : Font.PLAIN, i == 0 ? 16 : 14));
+                    FontMetrics lfm = g2.getFontMetrics();
+                    g2.drawString(lines[i], cx - lfm.stringWidth(lines[i]) / 2, lineY);
+                    lineY += 26;
+                }
+                g2.setColor(new Color(100, 150, 200));
+                g2.setFont(new Font("Monospaced", Font.PLAIN, 11));
+                String hint = "[ Click anywhere to enter World 3 ]";
+                FontMetrics hfm = g2.getFontMetrics();
+                g2.drawString(hint, cx - hfm.stringWidth(hint) / 2, by + bh - 14);
+            }
+        };
+        overlay.setOpaque(true);
+        overlay.setBackground(new Color(0, 10, 25));
+        overlay.setBounds(0, 0, 1280, 720);
+        Timer animTimer = new Timer(16, e -> overlay.repaint());
+        animTimer.start();
+        overlay.addMouseListener(new MouseAdapter() {
+            @Override public void mouseClicked(MouseEvent e) {
+                animTimer.stop();
+                WorldPanel.this.remove(overlay);
+                WorldPanel.this.revalidate();
+                WorldPanel.this.repaint();
+                gameScene.switchToWorld3(
+                        playerFighter, capturedTeam,
+                        scrollCount, lunasCount, potionCount,
+                        playerCoins, gameStartTime,
+                        adminMode, caveSceneShown, antingAntingCount);
+            }
+        });
+        this.add(overlay);
+        this.setComponentZOrder(overlay, 0);
+        this.revalidate();
+        this.repaint();
     }
+
 
     // ══════════════════════════════════════════════════════════════
     // SHOP (World 1 — Joshua)
@@ -2644,7 +2730,11 @@ public class WorldPanel extends JPanel implements Runnable {
                 w2PortalVisible = true;
             }
             if (w2PortalVisible) {
-                setHoverMessage("✦ WORLD 3 PORTAL ✦\nThis portal leads to the next town — coming soon!\nWorld 3 is still under construction. Check back later!");
+                if (!inBattle) {
+                    inBattle = true;
+                    syncStateToGameScene();
+                    SwingUtilities.invokeLater(this::enterPortalToWorld3);
+                }
             } else {
                 setHoverMessage("A mysterious sealed portal...\nDefeat the Town 2 Albularyo to unseal it.");
             }
