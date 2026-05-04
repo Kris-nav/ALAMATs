@@ -9,6 +9,8 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import javax.sound.sampled.*;
+import java.io.File;
 
 public class GameScene extends JFrame {
     private JTextArea textArea;
@@ -67,6 +69,8 @@ public class GameScene extends JFrame {
     private boolean w3Coin5Found      = false;
     private boolean w3Quest3Complete  = false;
     private boolean w3BossDone        = false;
+
+    private Clip bgmClip = null;
 
     public GameScene(ProgressionManager pm) {
         this.progressionManager = pm;
@@ -225,6 +229,7 @@ public class GameScene extends JFrame {
             this.repaint();
             SwingUtilities.invokeLater(() -> {
                 world.requestFocusInWindow();
+                playMusic("resources/music/eterna.wav");
                 world.start();
                 new Timer(300, e -> {
                     ((Timer) e.getSource()).stop();
@@ -305,9 +310,26 @@ public class GameScene extends JFrame {
             this.repaint();
             SwingUtilities.invokeLater(() -> {
                 world.requestFocusInWindow();
+                playMusic("resources/music/eterna.wav");
                 world.start();
             });
         });
+    }
+    public void playMusic(String path) {
+        try {
+            if (bgmClip != null) { bgmClip.stop(); bgmClip.close(); }
+            AudioInputStream audio = AudioSystem.getAudioInputStream(new File(path));
+            bgmClip = AudioSystem.getClip();
+            bgmClip.open(audio);
+            bgmClip.loop(Clip.LOOP_CONTINUOUSLY);
+            FloatControl gain = (FloatControl) bgmClip.getControl(FloatControl.Type.MASTER_GAIN);
+            gain.setValue(-10.0f);
+            bgmClip.start();
+        } catch (Exception e) { System.err.println("Music error: " + e.getMessage()); }
+    }
+
+    public void stopMusic() {
+        if (bgmClip != null) { bgmClip.stop(); bgmClip.close(); bgmClip = null; }
     }
 
     // ── Return to any map after battle (World 2 / World 3 aware) ──
@@ -358,6 +380,7 @@ public class GameScene extends JFrame {
                 this.repaint();
                 SwingUtilities.invokeLater(() -> {
                     world.requestFocusInWindow();
+                    playMusic("resources/music/eterna.wav");
                     world.start();
                 });
 
@@ -386,6 +409,7 @@ public class GameScene extends JFrame {
                 this.repaint();
                 SwingUtilities.invokeLater(() -> {
                     world.requestFocusInWindow();
+                    playMusic("resources/music/eterna.wav");
                     world.start();
                 });
 
@@ -406,6 +430,7 @@ public class GameScene extends JFrame {
                 this.repaint();
                 SwingUtilities.invokeLater(() -> {
                     world.requestFocusInWindow();
+                    playMusic("resources/music/eterna.wav");
                     world.start();
                 });
             }
@@ -489,6 +514,7 @@ public class GameScene extends JFrame {
             this.add(battle, BorderLayout.CENTER);
             this.pack();
             this.setLocationRelativeTo(null);
+            playMusic("resources/music/red.wav");
             this.revalidate();
             this.repaint();
         });
@@ -660,6 +686,7 @@ public class GameScene extends JFrame {
             this.repaint();
             SwingUtilities.invokeLater(() -> {
                 world.requestFocusInWindow();
+                playMusic("resources/music/eterna.wav");
                 world.start();
             });
         });
@@ -733,6 +760,7 @@ public class GameScene extends JFrame {
             this.repaint();
             SwingUtilities.invokeLater(() -> {
                 world.requestFocusInWindow();
+                playMusic("resources/music/eterna.wav");
                 world.start();
             });
         });

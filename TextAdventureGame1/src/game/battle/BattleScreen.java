@@ -8,6 +8,9 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import javax.sound.sampled.*;
+import java.io.File;
+
 
 public class BattleScreen extends JPanel implements ActionListener {
 
@@ -842,6 +845,7 @@ public class BattleScreen extends JPanel implements ActionListener {
         moveUsed.setText(user.name+" used "+move.name+"!"+ppInfo);
         showCard("Used"); // ✅ showCard("Used") stops timer since it's not Menu/Moves
         user.useMove(opp,userMove);
+        playEffect(move.name);
 
         new Timer(1000,new ActionListener() {
             @Override public void actionPerformed(ActionEvent evt) {
@@ -908,6 +912,18 @@ public class BattleScreen extends JPanel implements ActionListener {
             }
         }
         return (int)(baseExp*typeBonus);
+    }
+    public static void playEffect(String moveName) {
+        try {
+            File f = new File("resources/fx/" + moveName + ".wav");
+            if (!f.exists()) return;
+            AudioInputStream audio = AudioSystem.getAudioInputStream(f);
+            Clip clip = AudioSystem.getClip();
+            clip.open(audio);
+            FloatControl gain = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
+            gain.setValue(-10.0f);
+            clip.start();
+        } catch (Exception e) { System.err.println("FX error: " + e.getMessage()); }
     }
 
     private void animatePokemon(Fighter attacker) {
