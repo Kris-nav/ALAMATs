@@ -1789,7 +1789,19 @@ public class WorldPanel extends JPanel implements Runnable {
                         playerFighter, bossFirst, bossRest,
                         capturedTeam, scrollCount, lunasCount, potionCount,
                         savedX, savedY,
-                        () -> { w3BossDone = true; antingAntingCount = Math.min(4, antingAntingCount + 1); },
+                        () -> {
+                            w3BossDone = true;
+                            antingAntingCount = Math.min(4, antingAntingCount + 1);
+
+                            // ✅ FIX: Trigger Khaibalang dialog after boss defeat
+                            SwingUtilities.invokeLater(() -> {
+                                // Small delay to let battle screen close properly
+                                new Timer(500, e -> {
+                                    ((Timer)e.getSource()).stop();
+                                    showKhaiDialog();
+                                }).start();
+                            });
+                        },
                         "resources/World3.tmx")
         );
     }
@@ -1988,19 +2000,18 @@ public class WorldPanel extends JPanel implements Runnable {
                 g2.setFont(new Font("Monospaced", Font.BOLD, 26));
                 FontMetrics fm = g2.getFontMetrics();
                 String line1 = "YOU SAVED YOUR GRANDPA AND SIR KHAI!";
-                g2.drawString(line1, (1280-fm.stringWidth(line1))/2, 220);
+                g2.drawString(line1, (1280 - fm.stringWidth(line1)) / 2, 220);
                 g2.setColor(new Color(200, 200, 200));
                 g2.setFont(new Font("Monospaced", Font.PLAIN, 15));
                 fm = g2.getFontMetrics();
                 String line2 = "What will you do now, " + pName + "?";
-                g2.drawString(line2, (1280-fm.stringWidth(line2))/2, 270);
+                g2.drawString(line2, (1280 - fm.stringWidth(line2)) / 2, 270);
             }
         };
         overlay.setOpaque(false);
         overlay.setBounds(0, 0, 1280, 720);
 
-        // STAY button
-        JButton stayBtn = new JButton("STAY — Become an Albularyo with Grandpa");
+        JButton stayBtn = new JButton("STAY — Remain with Grandpa in the village");
         stayBtn.setBackground(new Color(40, 100, 40));
         stayBtn.setForeground(Color.WHITE);
         stayBtn.setFont(new Font("Monospaced", Font.BOLD, 14));
@@ -2011,13 +2022,26 @@ public class WorldPanel extends JPanel implements Runnable {
             WorldPanel.this.remove(overlay);
             WorldPanel.this.revalidate();
             WorldPanel.this.repaint();
-            showFloatingMessage("You stayed with your Grandpa. A new adventure begins!", new Color(100, 255, 150));
-            // Reset boss flags so player can fight again
-            bossFightDone = false; w2BossDone = false; w3BossDone = false;
-            syncStateToGameScene();
+
+            showFloatingMessage("You stayed with your Grandpa. A new adventure begins!",
+                    new Color(100, 255, 150));
+
+            new Timer(2000, resetEvent -> {
+                ((Timer) resetEvent.getSource()).stop();
+                resetGameFlags();
+                playerX = 4205;
+                playerY = 5125;
+                resetCreatureLevels();
+                resetInventory();
+                antingAntingCount = 0;
+                resetWorldFlags();
+                switchToWorld1Map();
+                syncStateToGameScene();
+                revalidate();
+                repaint();
+            }).start();
         });
 
-        // RETURN button
         JButton returnBtn = new JButton("RETURN — Go back to the city with Sir Khai");
         returnBtn.setBackground(new Color(40, 40, 120));
         returnBtn.setForeground(Color.WHITE);
@@ -2039,6 +2063,86 @@ public class WorldPanel extends JPanel implements Runnable {
         this.revalidate();
         this.repaint();
     }
+
+// ══════════════════════════════════════════════════════════════
+// NEW GAME / RESET HELPERS
+// ══════════════════════════════════════════════════════════════
+private void resetGameFlags() {
+    caveSceneShown      = false;
+    bossFightDone       = false;
+    portalVisible       = false;
+    bossTriggered       = false;
+    questCreaturesCaptured = 1;
+    questComplete       = false;
+    w2BossTriggered     = false;
+    w2BossDone          = false;
+    w2PortalVisible     = false;
+    quest2Triggered     = false;
+    quest2Complete      = false;
+    oldWomanCured       = false;
+    peksonTalked        = false;
+    peksonGaveAnting2   = false;
+    anting2Active       = false;
+    expMultiplier       = 1.0;
+    treasureFound       = false;
+    hasMap              = false;
+    w3Quest3Triggered   = false;
+    w3Coin1Found        = false;
+    w3Coin2Found        = false;
+    w3Coin3Found        = false;
+    w3Coin4Found        = false;
+    w3Coin5Found        = false;
+    w3Quest3Complete    = false;
+    w3BossDone          = false;
+    khaibalangDefeated  = false;
+    inBattle            = false;
+    healTriggered       = false;
+    w2HealTriggered     = false;
+    w3HealTriggered     = false;
+}
+
+private void resetCreatureLevels() {
+    // Reset player's starter to level 5, restore HP/PP
+    playerFighter.level = 5;
+    playerFighter.exp = 0;
+    playerFighter.expToNext = Fighter.expNeeded(5);
+    healFighter(playerFighter);
+    // Clear the captured team so the player starts fresh
+    capturedTeam.clear();
+}
+
+private void resetInventory() {
+    scrollCount      = 3;
+    lunasCount       = 3;
+    potionCount      = 3;
+    superLunasCount  = 0;
+    superPotionCount = 0;
+    superScrollCount = 0;
+    playerCoins      = 500;
+    adminMode        = false;
+}
+
+private void resetWorldFlags() {
+    currentMapPath   = "resources/World1.tmx";
+    currentTownName  = "TOWN 1 — USA Village";
+    antingAntingCount = 0;
+    hudCodeInput     = "";
+    hudCodeFocused   = false;
+    showBag          = false;
+    showShop         = false;
+    w2ShopOpen       = false;
+    showMapOverlay   = false;
+    if (mapOverlayPanel != null) { this.remove(mapOverlayPanel); mapOverlayPanel = null; }
+    if (bagOverlay     != null) { this.remove(bagOverlay);      bagOverlay      = null; }
+    if (shopOverlay    != null) { this.remove(shopOverlay);     shopOverlay     = null; }
+}
+
+private void switchToWorld1Map() {
+    tileCache.clear();
+    loadMap("resources/World1.tmx");
+    initSolidTiles();
+    currentTownName = "TOWN 1 — USA Village";
+}
 
 
 
