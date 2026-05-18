@@ -786,17 +786,30 @@ public class WorldPanel extends JPanel implements Runnable {
         };
         box.setOpaque(false);
         box.setBounds(bx, by, bw, bh);
-
         int defaultTab = isWorld3() ? 2 : isWorld2() ? 1 : 0;
         final int[] activeTab = {defaultTab};
 
         JButton m1Btn = buildMapTabBtn("M1 — Town 1", activeTab[0] == 0);
         JButton m2Btn = buildMapTabBtn("M2 — Town 2", activeTab[0] == 1);
         JButton m3Btn = buildMapTabBtn("M3 — Town 3", activeTab[0] == 2);
+
         m1Btn.setBounds(40,  60, 180, 36);
         m2Btn.setBounds(240, 60, 180, 36);
         m3Btn.setBounds(440, 60, 180, 36);
-        box.add(m1Btn); box.add(m2Btn); box.add(m3Btn);
+
+        box.add(m1Btn);
+        box.add(m2Btn);
+
+// ════════════════════════════════════════════════════════════
+// MAP 3 RESTRICTION: Only show in World 3
+// ════════════════════════════════════════════════════════════
+        if (isWorld3()) {
+            box.add(m3Btn);
+        } else if (isWorld2()) {
+            // In World 2: Hide Map 3 button
+            m3Btn.setEnabled(false);
+            m3Btn.setVisible(false);
+        }
 
         JPanel mapCanvas = new JPanel(null) {
             @Override protected void paintComponent(Graphics g) {
@@ -808,29 +821,37 @@ public class WorldPanel extends JPanel implements Runnable {
         mapCanvas.setOpaque(false);
         mapCanvas.setBounds(20, 108, bw - 40, bh - 160);
         box.add(mapCanvas);
-
         m1Btn.addActionListener(e -> {
             activeTab[0] = 0;
             m1Btn.setBackground(new Color(80, 50, 150));
             m2Btn.setBackground(new Color(30, 20, 60));
-            m3Btn.setBackground(new Color(30, 20, 60));
+            if (isWorld3()) m3Btn.setBackground(new Color(30, 20, 60));
             mapCanvas.repaint();
         });
+
         m2Btn.addActionListener(e -> {
             activeTab[0] = 1;
             m2Btn.setBackground(new Color(80, 50, 150));
             m1Btn.setBackground(new Color(30, 20, 60));
-            m3Btn.setBackground(new Color(30, 20, 60));
+            if (isWorld3()) m3Btn.setBackground(new Color(30, 20, 60));
             mapCanvas.repaint();
         });
+
+// ════════════════════════════════════════════════════════════
+// MAP 3 TAB - Only clickable in World 3
+// ════════════════════════════════════════════════════════════
         m3Btn.addActionListener(e -> {
+            if (!isWorld3()) {
+                // Prevent clicking in World 2
+                showFloatingMessage("Map 3 unlocked in Town 3!", new Color(255, 180, 50));
+                return;
+            }
             activeTab[0] = 2;
             m3Btn.setBackground(new Color(80, 50, 150));
             m1Btn.setBackground(new Color(30, 20, 60));
             m2Btn.setBackground(new Color(30, 20, 60));
             mapCanvas.repaint();
         });
-
         JButton closeBtn = new JButton("CLOSE [M]");
         closeBtn.setBackground(new Color(80, 30, 30));
         closeBtn.setForeground(Color.WHITE);
@@ -1465,10 +1486,45 @@ public class WorldPanel extends JPanel implements Runnable {
         superLunasCount=99; superPotionCount=99; superScrollCount=99;
         maxCreatureLevel(playerFighter);
         for (Fighter f:capturedTeam) maxCreatureLevel(f);
+
+        // ════════════════════════════════════════
+        // SKIP ALL QUESTS - ADMIN MODE
+        // ════════════════════════════════════════
+
+        // World 1 - Skip all
+        caveSceneShown = true;
+        bossFightDone = true;
+        portalVisible = true;
+
+        // World 2 - Skip all
+        w2BossDone = true;
+        w2PortalVisible = true;
+        quest2Complete = true;
+        oldWomanCured = true;
+        peksonGaveAnting2 = true;
+        anting2Active = true;
+        expMultiplier = 2.0;
+        peksonTalked = true;
+        treasureFound = true;
+        hasMap = true;
+        quest2Triggered = true;
+
+        // World 3 - Skip all
+        w3Quest3Triggered = true;
+        w3Coin1Found = true;
+        w3Coin2Found = true;
+        w3Coin3Found = true;
+        w3Coin4Found = true;
+        w3Coin5Found = true;
+        w3Quest3Complete = true;
+        w3BossDone = true;
+
+        // Set all Anting-Anting collected
+        antingAntingCount = 4;
+
         syncStateToGameScene();
         showLegendaryMessage();
     }
-
     private void skipToTown2() {
         hudCodeInput=""; hudCodeFocused=false;
         caveSceneShown=true;

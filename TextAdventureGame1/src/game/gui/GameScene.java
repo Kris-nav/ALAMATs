@@ -1,5 +1,8 @@
 package game.gui;
 
+import game.leaderboard.Leaderboard;
+import game.leaderboard.FileHandler;
+import game.leaderboard.LeaderboardUI;
 import game.battle.BattleScreen;
 import game.battle.Fighter;
 import game.core.ProgressionManager;
@@ -75,6 +78,9 @@ public class GameScene extends JFrame {
     // ── Reference to current WorldPanel for grandpa/credits calls ─
     private WorldPanel currentWorldPanel = null;
 
+    // ── LEADERBOARD SYSTEM ───────────────────────────────────────
+    private Leaderboard leaderboard = null;
+
     public GameScene(ProgressionManager pm) {
         this.progressionManager = pm;
         setTitle("ALAMAT - Journey");
@@ -130,14 +136,23 @@ public class GameScene extends JFrame {
         textPanel.add(skipButton);
 
         layeredPane.add(textPanel, JLayeredPane.PALETTE_LAYER);
+
         pack();
         setLocationRelativeTo(null);
+
+        // ════════════════════════════════════════════════════════════
+        // INITIALIZE LEADERBOARD SYSTEM
+        // ════════════════════════════════════════════════════════════
+        FileHandler.initializeDataDirectory();
+        this.leaderboard = FileHandler.loadLeaderboard();
+        this.gameStartTime = System.currentTimeMillis();
     }
 
     public void setPlayerProfile(String name, int age, String gender) {
         this.playerName   = name;
         this.playerAge    = age;
         this.playerGender = gender;
+        this.gameStartTime = System.currentTimeMillis();
     }
 
     public void syncPersistentState(boolean adminMode, boolean caveSceneShown,
@@ -772,7 +787,7 @@ public class GameScene extends JFrame {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // CREDITS SCENE  (single definition) - FIXED VERSION
+    // CREDITS SCENE WITH LEADERBOARD
     // ══════════════════════════════════════════════════════════════
 
     public void showCredits(String pName) {
@@ -817,15 +832,29 @@ public class GameScene extends JFrame {
                         long elapsed = System.currentTimeMillis() - startTime;
 
                         // Calculate scroll speed to complete in 10 seconds
-                        // Total scroll distance = starting position (820) + total height (credits.length * 55)
                         int totalHeight = credits.length * 55;
                         int totalDistance = 820 + totalHeight;
 
                         if (elapsed >= 10000) {
-                            // 10 seconds completed - stop scrolling and return to start screen
+                            // Credits finished - save to leaderboard and show it
                             scrollTimer.stop();
                             isScrolling = false;
-                            returnToStartScreen();
+
+                            // ════════════════════════════════════════════════════════════
+                            // CALCULATE GAME TIME & ADD TO LEADERBOARD
+                            // ════════════════════════════════════════════════════════════
+                            long gameEndTime = System.currentTimeMillis();
+                            long totalGameTime = gameEndTime - gameStartTime;
+
+                            // Add entry to leaderboard
+                            leaderboard.addEntry(pName, totalGameTime);
+
+                            // Save to file
+                            FileHandler.saveLeaderboard(leaderboard);
+
+                            // Show leaderboard UI
+                            LeaderboardUI ui = new LeaderboardUI(leaderboard, GameScene.this, pName, totalGameTime);
+                            ui.display();
                         } else {
                             // Calculate progress and scroll position
                             double progress = elapsed / 10000.0;
@@ -892,7 +921,7 @@ public class GameScene extends JFrame {
     // ══════════════════════════════════════════════════════════════
     // RETURN TO START SCREEN
     // ══════════════════════════════════════════════════════════════
-    private void returnToStartScreen() {
+    public void returnToStartScreen() {
         SwingUtilities.invokeLater(() -> {
             this.getContentPane().removeAll();
             this.setLayout(new BorderLayout());
@@ -933,7 +962,7 @@ public class GameScene extends JFrame {
                     }
                 }
             };
-            startPanel.setPreferredSize(new Dimension(W, H));
+            startPanel.setPreferredSize(new Dimension(1280, 720));
             startPanel.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
